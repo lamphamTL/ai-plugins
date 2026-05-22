@@ -446,6 +446,8 @@ struct ContentView: View {
         var grouped: [Date: [String: (cost: Double, tokens: Int, count: Int, source: String)]] = [:]
         var bucketCounts: [Date: Int] = [:]
         var bucketCredits: [Date: Double] = [:]
+        var bucketCacheRead:  [Date: Int] = [:]
+        var bucketCacheTotal: [Date: Int] = [:]
 
         for entry in visible {
             guard let interval = calendar.dateInterval(of: component, for: entry.ts) else { continue }
@@ -461,6 +463,9 @@ struct ContentView: View {
             )
             bucketCounts[bucket, default: 0] += 1
             if let cr = entry.credits { bucketCredits[bucket, default: 0] += cr }
+            let t = entry.tokens
+            bucketCacheRead[bucket,  default: 0] += t.cache_read
+            bucketCacheTotal[bucket, default: 0] += t.cache_read + (t.cache_write ?? 0) + t.input
         }
 
         var points: [ChartPoint] = []
@@ -479,7 +484,9 @@ struct ContentView: View {
             totalCredits: visible.compactMap(\.credits).reduce(0, +),
             totalEntries: visible.count,
             bucketCounts: bucketCounts,
-            bucketCredits: bucketCredits
+            bucketCredits: bucketCredits,
+            bucketCacheRead: bucketCacheRead,
+            bucketCacheTotal: bucketCacheTotal
         )
     }
 

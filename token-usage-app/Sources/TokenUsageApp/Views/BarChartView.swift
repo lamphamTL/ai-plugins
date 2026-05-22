@@ -5,22 +5,25 @@ enum ChartMode: String, CaseIterable, Identifiable {
     case cost
     case efficiency
     case eventCount
+    case cacheHitRate
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .cost:       return "Spend"
-        case .efficiency: return "Cost per event"
-        case .eventCount: return "Event count"
+        case .cost:         return "Spend"
+        case .efficiency:   return "Cost per event"
+        case .eventCount:   return "Event count"
+        case .cacheHitRate: return "Cache hit"
         }
     }
 
     var icon: String {
         switch self {
-        case .cost:       return "dollarsign"
-        case .efficiency: return "chart.line.uptrend.xyaxis"
-        case .eventCount: return "number"
+        case .cost:         return "dollarsign"
+        case .efficiency:   return "chart.line.uptrend.xyaxis"
+        case .eventCount:   return "number"
+        case .cacheHitRate: return "memorychip"
         }
     }
 }
@@ -43,9 +46,12 @@ struct ChartData {
     let totalEntries: Int
     let bucketCounts: [Date: Int]
     let bucketCredits: [Date: Double]
+    let bucketCacheRead:  [Date: Int]   // numerator for cache hit rate
+    let bucketCacheTotal: [Date: Int]   // denominator = cache_read + cache_write + input
 
     static let empty = ChartData(points: [], totalCost: 0, totalCredits: 0,
-                                 totalEntries: 0, bucketCounts: [:], bucketCredits: [:])
+                                 totalEntries: 0, bucketCounts: [:], bucketCredits: [:],
+                                 bucketCacheRead: [:], bucketCacheTotal: [:])
 }
 
 struct BarChartView: View {
@@ -114,8 +120,22 @@ struct BarChartView: View {
         }.sorted { $0.bucketDate < $1.bucketDate }
     }
 
+    private var cacheHitRatePoints: [ChartPoint] {
+        data.bucketCacheTotal.compactMap { date, total in
+            guard total > 0 else { return nil }
+            let read = data.bucketCacheRead[date] ?? 0
+            let pct  = Double(read) / Double(total) * 100   // 0…100
+            return ChartPoint(bucketDate: date, project: "rate", source: "",
+                              cost: pct, totalTokens: 0, eventCount: 0)
+        }.sorted { $0.bucketDate < $1.bucketDate }
+    }
+
     private var activePoints: [ChartPoint] {
-        chartMode == .efficiency ? efficiencyPoints : data.points
+        switch chartMode {
+        case .efficiency:   return efficiencyPoints
+        case .cacheHitRate: return cacheHitRatePoints
+        default:            return data.points
+        }
     }
 
     // Selected-bucket aggregate, semantics depend on mode.
@@ -131,6 +151,11 @@ struct BarChartView: View {
         return matching?.cost
     }
 
+    private var selectedBucketCacheHitRate: Double? {
+        guard let bucket = selectedBucket else { return nil }
+        return cacheHitRatePoints.first(where: { $0.bucketDate == bucket })?.cost
+    }
+
     private var selectedBucketEventCount: Int? {
         guard let bucket = selectedBucket else { return nil }
         return data.bucketCounts[bucket]
@@ -139,6 +164,13 @@ struct BarChartView: View {
     private var overallEfficiency: Double {
         guard data.totalEntries > 0 else { return 0 }
         return data.totalCost / Double(data.totalEntries)
+    }
+
+    private var overallCacheHitRate: Double {
+        let totalRead  = data.bucketCacheRead.values.reduce(0, +)
+        let totalDenom = data.bucketCacheTotal.values.reduce(0, +)
+        guard totalDenom > 0 else { return 0 }
+        return Double(totalRead) / Double(totalDenom) * 100
     }
 
     private var allProjects: [String] { Array(Set(data.points.map(\.project))).sorted() }
@@ -197,7 +229,7 @@ struct BarChartView: View {
         let bucketStart = interval.start
 
         switch chartMode {
-        case .efficiency:
+        case .efficiency, .cacheHitRate:
             // Line chart: accept tap anywhere in the bucket column
             return activePoints.contains { $0.bucketDate == bucketStart } ? bucketStart : nil
         case .cost:
@@ -220,6 +252,8 @@ struct BarChartView: View {
                 costChart
             case .eventCount:
                 eventCountChart
+            case .cacheHitRate:
+                cacheHitRateChart
             }
 
             // ── Footer ─────────────────────────────────────────────────
@@ -227,7 +261,7 @@ struct BarChartView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     primaryFooterMetric
                     Spacer()
-                    if chartMode != .efficiency {
+                    if chartMode != .efficiency && chartMode != .cacheHitRate {
                         let count = selectedBucketEventCount ?? data.totalEntries
                         Text("\(count) event\(count == 1 ? "" : "s")")
                             .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -265,6 +299,11 @@ struct BarChartView: View {
             Text("\(count)")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(.primary)
+        case .cacheHitRate:
+            let pct = selectedBucketCacheHitRate ?? overallCacheHitRate
+            Text(String(format: "%.1f%% cache hit", pct))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(pct >= 70 ? Color.green : pct >= 40 ? Color.yellow : Color.red)
         }
     }
 
@@ -360,6 +399,40 @@ struct BarChartView: View {
     }
 
     @ViewBuilder
+    private var cacheHitRateChart: some View {
+        Chart(cacheHitRatePoints) { point in
+            LineMark(
+                x: .value("Time", point.bucketDate, unit: kind.bucketComponent),
+                y: .value("Cache hit %", point.cost)
+            )
+            .foregroundStyle(Color.cyan.opacity(0.85))
+            .interpolationMethod(.catmullRom)
+
+            PointMark(
+                x: .value("Time", point.bucketDate, unit: kind.bucketComponent),
+                y: .value("Cache hit %", point.cost)
+            )
+            .foregroundStyle(selectedBucket == nil || selectedBucket == point.bucketDate
+                ? Color.cyan
+                : Color.cyan.opacity(0.3))
+            .symbolSize(selectedBucket == point.bucketDate ? 60 : 30)
+        }
+        .chartXAxis { categoricalXAxis }
+        .chartYAxis { cacheHitRateYAxis }
+        .chartXScale(domain: commonXScale)
+        .chartYScale(domain: 0...100)
+        .chartLegend(.hidden)
+        .frame(minHeight: chartMinHeight, maxHeight: chartMaxHeight)
+        .animation(nil, value: kind)
+        .animation(nil, value: scrollDate)
+        .animation(nil, value: barCount)
+        .chartOverlay { proxy in tapOverlay(proxy: proxy) }
+        .onChange(of: scrollDate) { _, _ in selectedBucket = nil }
+        .onChange(of: kind)       { _, _ in selectedBucket = nil }
+        .onChange(of: chartMode)  { _, _ in selectedBucket = nil }
+    }
+
+    @ViewBuilder
     private func tapOverlay(proxy: ChartProxy) -> some View {
         GeometryReader { geo in
             Rectangle().fill(.clear).contentShape(Rectangle())
@@ -432,6 +505,21 @@ struct BarChartView: View {
             AxisValueLabel {
                 if let v = value.as(Int.self) {
                     Text("\(v)")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+    }
+
+    @AxisContentBuilder
+    private var cacheHitRateYAxis: some AxisContent {
+        AxisMarks(position: .leading) { value in
+            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                .foregroundStyle(.primary.opacity(0.18))
+            AxisValueLabel {
+                if let v = value.as(Double.self) {
+                    Text(String(format: "%.0f%%", v))
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(.white)
                 }

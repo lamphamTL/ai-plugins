@@ -51,6 +51,30 @@ if pre_file.exists():
     except Exception:
         pass
 
+# Subagent Stop hooks receive the PARENT transcript path. Redirect to the
+# subagent's own transcript by scanning sibling jsonl files for the agent_id.
+if agent_id and transcript:
+    parent_dir = Path(transcript).parent
+    parent_name = Path(transcript).name
+    found = None
+    candidates = sorted(parent_dir.glob("*.jsonl"),
+                        key=lambda p: p.stat().st_mtime, reverse=True)
+    for c in candidates:
+        if c.name == parent_name:
+            continue
+        try:
+            if agent_id in c.read_text():
+                found = str(c)
+                break
+        except Exception:
+            continue
+    if found:
+        transcript = found
+    else:
+        # Subagent transcript not located — drop the event instead of
+        # double-logging parent cumulative.
+        sys.exit(0)
+
 if not transcript or not Path(transcript).exists():
     sys.exit(0)
 
