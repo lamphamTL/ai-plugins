@@ -38,14 +38,11 @@ struct ContentView: View {
     @State private var selectedModel: String? = nil
     @State private var chartMode: ChartMode = .cost
     @State private var isHovering = false
-    @State private var isPopoutHovering = false
-    @State private var isReloadHovering = false
     @State private var barCount: Int = 7
     @State private var chartData: ChartData = .empty
     @State private var pendingBarCount: Int? = nil
     @State private var resizeWorkItem: DispatchWorkItem? = nil
     @State private var didFirstRender = false
-    @State private var showFilters = false
 
     private let sources = [("All", String?.none), ("Claude", "claude"), ("Codex", "codex")]
 
@@ -78,6 +75,33 @@ struct ContentView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .focusEffectDisabled()
+    }
+
+    @ViewBuilder
+    private var sourcePicker: some View {
+        HStack(spacing: 2) {
+            ForEach(sources, id: \.0) { label, value in
+                Button {
+                    selectedSource = value
+                } label: {
+                    Text(label)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            selectedSource == value
+                                ? Color.primary.opacity(0.12)
+                                : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(selectedSource == value ? .primary : .secondary)
+            }
+        }
+        .padding(3)
+        .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         .focusEffectDisabled()
     }
 
@@ -151,8 +175,71 @@ struct ContentView: View {
 
                     chartModeMenu
 
-                    Button {
-                        showFilters.toggle()
+                    Menu {
+                        if !sourceFilteredProjects.isEmpty {
+                            Section("Project") {
+                                Button {
+                                    selectedProject = nil
+                                } label: {
+                                    if selectedProject == nil {
+                                        Label("All projects", systemImage: "checkmark")
+                                    } else {
+                                        Text("All projects")
+                                    }
+                                }
+                                ForEach(sourceFilteredProjects, id: \.self) { path in
+                                    Button {
+                                        selectedProject = path
+                                    } label: {
+                                        if selectedProject == path {
+                                            Label(URL(fileURLWithPath: path).lastPathComponent, systemImage: "checkmark")
+                                        } else {
+                                            Text(URL(fileURLWithPath: path).lastPathComponent)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if availableModels.count > 1 {
+                            Section("Model") {
+                                Button {
+                                    selectedModel = nil
+                                } label: {
+                                    if selectedModel == nil {
+                                        Label("All models", systemImage: "checkmark")
+                                    } else {
+                                        Text("All models")
+                                    }
+                                }
+                                ForEach(availableModels, id: \.self) { model in
+                                    Button {
+                                        selectedModel = model
+                                    } label: {
+                                        if selectedModel == model {
+                                            Label(model, systemImage: "checkmark")
+                                        } else {
+                                            Text(model)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Section {
+                            if isAnyFilterActive {
+                                Button("Reset filters") {
+                                    selectedProject = nil
+                                    selectedModel = nil
+                                }
+                            }
+                            Button("Reload") {
+                                store.refresh()
+                            }
+                            if displayMode == .popover {
+                                Button("Open in window") {
+                                    NotificationCenter.default.post(name: .init("com.lampham.tokenusage.popout"), object: nil)
+                                }
+                            }
+                        }
                     } label: {
                         Image(systemName: isAnyFilterActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                             .font(.system(size: 13, weight: .semibold))
@@ -173,47 +260,10 @@ struct ContentView: View {
                                 }
                             }
                     }
-                    .buttonStyle(.plain)
-                    .popover(isPresented: $showFilters, arrowEdge: .top) {
-                        FilterPopoverContent(
-                            selectedSource: $selectedSource,
-                            selectedProject: $selectedProject,
-                            selectedModel: $selectedModel,
-                            sources: sources,
-                            projects: sourceFilteredProjects,
-                            models: availableModels
-                        )
-                        .padding(14)
-                        .frame(width: 260)
-                    }
-
-                    Button {
-                        store.refresh()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary.opacity(isReloadHovering ? 0.9 : 0.6))
-                            .frame(width: 22, height: 22)
-                            .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { isReloadHovering = $0 }
-                    .help("Reload data")
-
-                    // Pop out to standalone window (hidden when already in window mode)
-                    if displayMode == .popover {
-                        Button {
-                            NotificationCenter.default.post(name: .init("com.lampham.tokenusage.popout"), object: nil)
-                        } label: {
-                            Image(systemName: "macwindow.on.rectangle")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary.opacity(isPopoutHovering ? 0.9 : 0.4))
-                                .symbolRenderingMode(.hierarchical)
-                        }
-                        .buttonStyle(.plain)
-                        .onHover { isPopoutHovering = $0 }
-                        .help("Open in window")
-                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .focusEffectDisabled()
 
                     // Close (popover only — window has traffic lights)
                     if displayMode == .popover {
@@ -231,7 +281,16 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 2)
-                .padding(.bottom, 1)
+                .padding(.bottom, 4)
+
+                // ── Source picker row ────────────────────────────────────
+                HStack {
+                    Spacer()
+                    sourcePicker
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 4)
 
                 // ── Weekly credit tracker (Codex only) ───────────────────
                 if selectedSource == "codex" {
@@ -509,100 +568,10 @@ struct ContentView: View {
     }
 
     private var isAnyFilterActive: Bool {
-        selectedSource != nil || selectedProject != nil || selectedModel != nil
+        selectedProject != nil || selectedModel != nil
     }
 
     private static func initialScrollDate(for kind: TimeRangeKind) -> Date {
         TimeWindow.initialScrollDate(for: kind)
-    }
-}
-
-private struct FilterPopoverContent: View {
-    @Binding var selectedSource: String?
-    @Binding var selectedProject: String?
-    @Binding var selectedModel: String?
-    let sources: [(String, String?)]
-    let projects: [String]
-    let models: [String]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Filters")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 2) {
-                ForEach(sources, id: \.0) { label, value in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedSource = value
-                        }
-                    } label: {
-                        Text(label)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(
-                                selectedSource == value
-                                    ? Color.primary.opacity(0.12)
-                                    : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(selectedSource == value ? .primary : .secondary)
-                }
-            }
-            .padding(3)
-            .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-
-            if !projects.isEmpty {
-                HStack {
-                    Image(systemName: "folder")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                    Picker("", selection: $selectedProject) {
-                        Text("All projects").tag(String?.none)
-                        ForEach(projects, id: \.self) { path in
-                            Text(URL(fileURLWithPath: path).lastPathComponent)
-                                .tag(Optional(path))
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .font(.system(size: 11))
-                    .labelsHidden()
-                }
-            }
-
-            if models.count > 1 {
-                HStack {
-                    Image(systemName: "cpu")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                    Picker("", selection: $selectedModel) {
-                        Text("All models").tag(String?.none)
-                        ForEach(models, id: \.self) { model in
-                            Text(model).tag(Optional(model))
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .font(.system(size: 11))
-                    .labelsHidden()
-                }
-            }
-
-            if selectedSource != nil || selectedProject != nil || selectedModel != nil {
-                Button {
-                    selectedSource = nil
-                    selectedProject = nil
-                    selectedModel = nil
-                } label: {
-                    Text("Reset")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
     }
 }
