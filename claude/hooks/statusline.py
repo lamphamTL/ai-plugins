@@ -16,6 +16,7 @@ cache_w = cw.get("cache_creation_input_tokens", 0)
 ctx_pct = int((data.get("context_window") or {}).get("used_percentage") or 0)
 
 total_in = in_tok + cache_r + cache_w
+hit_pct  = int(cache_r * 100 / total_in) if total_in else 0
 
 session_id = data.get("session_id") or ""
 
@@ -42,6 +43,7 @@ BLUE    = "\033[34m"
 
 ctx_color  = RED if ctx_pct >= 80 else (YELLOW if ctx_pct >= 50 else GREEN)
 cost_color = RED if cost >= 0.50  else (YELLOW if cost >= 0.10  else GREEN)
+hit_color  = GREEN if hit_pct >= 80 else (YELLOW if hit_pct >= 50 else RED)
 
 compact_info = ""
 compact_file = Path.home() / ".claude/compaction/result.json"
@@ -63,6 +65,7 @@ sys.stdout.write(
     f"{BLUE}in{RESET}:{WHITE}{in_tok}{RESET}({WHITE}{total_in}{RESET}) "
     f"{MAGENTA}out{RESET}:{WHITE}{out_tok}{RESET} "
     f"{CYAN}cache(r/w){RESET}:{WHITE}{cache_r}/{cache_w}{RESET} "
+    f"{CYAN}hit{RESET}:{hit_color}{hit_pct}%{RESET} "
     f"{ctx_color}ctx{RESET}:{WHITE}{ctx_pct}%{RESET} "
     f"{cost_color}cost{RESET}:{WHITE}${cost:.4f}{RESET}"
     f"{compact_info}\n"

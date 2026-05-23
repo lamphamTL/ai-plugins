@@ -47,6 +47,7 @@ out_tok   = last_count.get("output_tokens", 0)
 cached    = last_count.get("cached_input_tokens", 0)
 reasoning = last_count.get("reasoning_output_tokens", 0)
 in_tok    = raw_input - cached
+hit_pct   = int(cached * 100 / raw_input) if raw_input else 0
 
 # ── Credits + cost ─────────────────────────────────────────────────────────────
 RATES = {
@@ -74,12 +75,14 @@ RED     = "\033[31m"
 BLUE    = "\033[34m"
 
 cost_color = RED if cost >= 0.50 else (YELLOW if cost >= 0.10 else GREEN)
+hit_color  = GREEN if hit_pct >= 80 else (YELLOW if hit_pct >= 50 else RED)
 
 sys.stdout.write(
     f"{BOLD}{CYAN}[{model}]{RESET} "
     f"{BLUE}in{RESET}:{WHITE}{in_tok}{RESET} "
     f"{MAGENTA}out{RESET}:{WHITE}{out_tok}{RESET} "
     f"{CYAN}cache{RESET}:{WHITE}{cached}{RESET} "
+    f"{CYAN}hit{RESET}:{hit_color}{hit_pct}%{RESET} "
     f"{YELLOW}reason{RESET}:{WHITE}{reasoning}{RESET} "
     f"{cost_color}credits{RESET}:{WHITE}{credits:.2f}{RESET} "
     f"{cost_color}cost{RESET}:{WHITE}${cost:.4f}{RESET}\n"
