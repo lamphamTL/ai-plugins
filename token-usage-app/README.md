@@ -10,15 +10,17 @@ A native macOS floating widget that visualises Claude Code and Codex token costs
 
 Visualise AI spending (USD) across Claude and Codex sessions. Filter by tool (Claude / Codex), project, and timeframe (day / week / month).
 
-### Spend efficiency chart ($/event)
+### Charts
 
-1 event = 1 prompt submitted and responded to.
+Pick a chart type from the header menu. All charts respect the active source / project / timeframe filters.
 
-Toggle **`$/ev`** in the header to switch to the efficiency chart. Each point shows average cost per event (`total_cost_usd / stop_events`) for that bucket.
+| Chart | Header label | What each bar shows | Use it to |
+|-------|--------------|---------------------|-----------|
+| **Spend** | `Spend` | Total `cost_usd` in the bucket | Track absolute spend over day / week / month |
+| **Cost per event** | `Cost per event` | `total_cost_usd / stop_events` (1 event = 1 prompt submitted and responded to) | Minimise $/event without sacrificing output quality — a downward trend means tighter prompts, response-compression skills, and leaner context are paying off |
+| **Event count** | `Event count` | Number of Stop events (turns) in the bucket | Gauge raw usage volume independent of cost |
+| **Cache hit** | `Cache hit` | Prompt-cache reuse ratio per bucket: `cache_read / (input + cache_read + cache_write)` for Claude, `cached_input / (fresh_input + cached_input)` for Codex | Spot cache invalidation regressions — drops correlate with `$/event` spikes |
 
-**Goal: minimise $/event without sacrificing output quality.** A downward trend means workflow changes — tighter prompts, response-compression skills, leaner context — are paying off.
-
-![Spend per event chart](resources/spend-per-event.png)
 
 ### Cache hit alert
 
