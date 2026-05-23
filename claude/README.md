@@ -83,6 +83,30 @@ command = "git push"
 
 Rules are matched top-to-bottom; first match wins. The matched prompt is available as `INTENT_PROMPT` env var in the command.
 
+### 5. Cache Hit Alert
+
+**Script:** [`hooks/track-tokens.py`](hooks/track-tokens.py)
+**Hook:** `Stop`
+
+Fires a macOS notification when prompt-cache reuse drops below 90% on a turn — a leading indicator that workflow changes (new files in context, edits invalidating cached prefixes, model switches) are about to spike cost-per-event.
+
+Cache hit rate per turn:
+
+```
+cache_read / (input + cache_read + cache_write)
+```
+
+Triggered once per turn, after the JSONL entry is written. Alert dispatched via `osascript display notification` with the Submarine sound.
+
+**Gates** (suppress noise):
+- prior turn had cache activity (`cache_read + cache_write > 0`) — skip first turn where nothing is cached yet
+- turn input ≥ 1000 tokens — skip trivial turns
+- hit < 90%
+
+**Statusline** also shows live `hit:<pct>%` (green ≥80%, yellow ≥50%, red below) so you can watch the rate without waiting for an alert.
+
+> **macOS permission:** banners appear only if **System Settings → Notifications → Script Editor → Alert style** is set to `Banners` or `Alerts`. Otherwise sound plays but the message is routed silently into Notification Center.
+
 ## File Structure
 
 ```text

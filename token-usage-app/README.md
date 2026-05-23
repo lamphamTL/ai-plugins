@@ -22,27 +22,7 @@ Pick a chart type from the header menu. All charts respect the active source / p
 | **Cache hit** | `Cache hit` | Prompt-cache reuse ratio per bucket: `cache_read / (input + cache_read + cache_write)` for Claude, `cached_input / (fresh_input + cached_input)` for Codex | Spot cache invalidation regressions — drops correlate with `$/event` spikes |
 
 
-### Cache hit alert
-
-Fires a macOS notification when prompt-cache reuse drops below 90% on a turn — a leading indicator that workflow changes (new files in context, edits invalidating cached prefixes, model switches) are about to spike `$/event`.
-
-Cache hit rate per turn:
-
-```
-Claude: cache_read / (input + cache_read + cache_write)
-Codex:  cached_input / (fresh_input + cached_input)
-```
-
-Triggered from the Stop hook (`claude/hooks/track-tokens.py`, `codex/scripts/track-tokens.py`) once per turn, after the JSONL entry is written. Alert dispatched via `osascript display notification` with the Submarine sound.
-
-**Gates** (suppress noise):
-- prior turn had cache activity (`cache_read + cache_write > 0`) — skip first turn where nothing is cached yet
-- turn input ≥ 1000 tokens — skip trivial turns
-- hit < 90%
-
-**Statusline** also shows live `hit:<pct>%` (green ≥80%, yellow ≥50%, red below) so you can watch the rate without opening the widget.
-
-> **macOS permission:** banners appear only if **System Settings → Notifications → Script Editor → Alert style** is set to `Banners` or `Alerts`. Otherwise sound plays but the message is routed silently into Notification Center.
+Low-cache-hit alerts are fired from the Stop hooks in the plugins — see [`claude/README.md`](../claude/README.md#5-cache-hit-alert) and [`codex/README.md`](../codex/README.md#4-cache-hit-alert).
 
 ## Requirements
 
