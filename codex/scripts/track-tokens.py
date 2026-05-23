@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -145,3 +146,17 @@ entry = {
 
 with open(usage_dir / "usage.jsonl", "a", encoding="utf-8") as f:
     f.write(json.dumps(entry) + "\n")
+
+# ── Alert: cache hit rate dropped below 90% ───────────────────────────────────
+delta_raw_in = delta_fresh_input + delta_cached
+if prev_cached > 0 and delta_raw_in >= 1000:
+    hit_pct = int(delta_cached * 100 / delta_raw_in)
+    if hit_pct < 90:
+        safe_project = project.replace("\\", "\\\\").replace('"', '\\"')
+        msg = f"Cache hit {hit_pct}% in {safe_project}"
+        subprocess.Popen(
+            ["osascript", "-e",
+             f'display notification "{msg}" with title "Codex" subtitle "Low cache hit" sound name "Submarine"'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )

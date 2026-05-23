@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -173,3 +174,18 @@ with open(usage_dir / "usage.jsonl", "a", encoding="utf-8") as f:
     "cache_read":  delta_cache_read,
     "cost_usd":    cost,
 }))
+
+# ── Alert: cache hit rate dropped below 90% ───────────────────────────────────
+delta_total_in = delta_input + delta_cache_read + delta_cache_write
+prior_cache    = prev_cache_read + prev_cache_write
+if prior_cache > 0 and delta_total_in >= 1000:
+    hit_pct = int(delta_cache_read * 100 / delta_total_in)
+    if hit_pct < 90:
+        safe_project = project.replace("\\", "\\\\").replace('"', '\\"')
+        msg = f"Cache hit {hit_pct}% in {safe_project}"
+        subprocess.Popen(
+            ["osascript", "-e",
+             f'display notification "{msg}" with title "Claude Code" subtitle "Low cache hit" sound name "Submarine"'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
