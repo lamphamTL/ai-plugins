@@ -1,6 +1,6 @@
 import json
 
-from ._constants import USAGE_DIR
+from .model_pricing import USAGE_DIR
 
 
 def post_persist(entry: dict, result: dict) -> None:

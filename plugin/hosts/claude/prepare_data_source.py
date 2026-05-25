@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from ._constants import COMPACTION_DIR, STATE_JSON, USAGE_DIR
+from .model_pricing import COMPACTION_DIR, STATE_JSON, USAGE_DIR
 
 
 def _derive_project(cwd: str) -> str:

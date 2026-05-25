@@ -5,6 +5,8 @@ USAGE_DIR = Path.home() / ".codex/token-usage"
 USAGE_JSONL = USAGE_DIR / "usage.jsonl"
 STATE_JSON = USAGE_DIR / "state.json"
 
+# Credits per million tokens. Multiply by CREDIT_TO_USD for USD.
+# Source: https://developers.openai.com/api/docs/pricing
 RATES = {
     "gpt-5.5":       {"ri": 125,    "ro": 750,  "rc": 12.50},
     "gpt-5.4":       {"ri": 62.50,  "ro": 375,  "rc": 6.25},

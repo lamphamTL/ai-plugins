@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from ._constants import STATE_JSON, USAGE_DIR
+from .model_pricing import STATE_JSON, USAGE_DIR
 
 
 def _derive_project(cwd: str) -> str:

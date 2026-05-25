@@ -1,4 +1,4 @@
-from ._constants import CREDIT_TO_USD, DEFAULT_RATE, RATES
+from .model_pricing import CREDIT_TO_USD, DEFAULT_RATE, RATES
 
 
 def compute_spend(model: str, deltas: dict):
