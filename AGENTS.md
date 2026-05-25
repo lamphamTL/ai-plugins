@@ -7,22 +7,26 @@ Plugins for Claude Code and Codex CLI, plus a native macOS token usage widget.
 ```
 ai-plugins/
 ├── plugin/                       # Shared hook scripts (used by both plugins)
-│   ├── track-tokens.py           # Driver — appends JSONL entry per Stop event
-│   ├── static-dispatch.py        # Driver — UserPromptSubmit prompt dispatch
-│   ├── pre-compact.py            # Claude-only: snapshot context before compaction
-│   ├── post-compact.py           # Claude-only: PostCompact placeholder
-│   ├── statusline.py             # Claude-only: live token/cost statusline
-│   ├── cleanup-state.py          # Claude-only: one-off state.json cleanup
-│   ├── cleanup-subagent-rows.py  # Claude-only: one-off usage.jsonl cleanup
-│   └── hosts/                    # Per-host modules consumed by the drivers
-│       ├── claude.py             # prepare_data_source, compute_spend, paths…
-│       └── codex.py              # same surface, Codex-shaped
+│   └── hooks/                    # Single source of truth — both plugins symlink here
+│       ├── track-tokens.py       # Driver — appends JSONL entry per Stop event
+│       ├── static-dispatch.py    # Driver — UserPromptSubmit prompt dispatch
+│       ├── pre-compact.py        # Claude-only: snapshot context before compaction
+│       ├── post-compact.py       # Claude-only: PostCompact placeholder
+│       ├── statusline.py         # Claude-only: live token/cost statusline
+│       ├── cleanup-state.py      # Claude-only: one-off state.json cleanup
+│       └── hosts/                # Per-host packages consumed by the drivers
+│           ├── claude/           # prepare_data_source, compute_spend, build_entry…
+│           └── codex/            # same surface, Codex-shaped
 ├── claude/                       # Claude Code plugin (wires shared scripts)
 │   ├── .claude-plugin/plugin.json
-│   └── hooks/hooks.json          # Points at ${CLAUDE_PLUGIN_ROOT}/../plugin/...
+│   └── hooks/
+│       ├── hooks.json            # Points at ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/...
+│       └── scripts -> ../../plugin/hooks   # symlink; installer follows during cache copy
 ├── codex/                        # Codex CLI plugin (wires shared scripts)
 │   ├── .codex-plugin/plugin.json
-│   └── hooks/hooks.json          # Points at ${PLUGIN_ROOT}/../plugin/...
+│   └── hooks/
+│       ├── hooks.json            # Points at ${PLUGIN_ROOT}/hooks/scripts/...
+│       └── scripts -> ../../plugin/hooks   # symlink; installer follows during cache copy
 └── token-usage-app/              # Native macOS SwiftUI widget
     ├── build.sh                  # Build script (uses swiftc directly — SPM broken on macOS 26 beta)
     ├── resources/                # Screenshots and assets
@@ -35,13 +39,13 @@ ai-plugins/
         └── Views/                       # ContentView, BarChartView, NavigationBar
 ```
 
-Each hooks.json sets `INTENT_HOST=claude` or `INTENT_HOST=codex` on the script command so the shared driver imports the right `plugin/hosts/<host>.py` module.
+Each hooks.json sets `INTENT_HOST=claude` or `INTENT_HOST=codex` on the script command so the shared driver imports the right `plugin/hooks/hosts/<host>/` package.
 
 ## Token usage logs
 
 ### Claude
 
-Written by `plugin/track-tokens.py` (host module `plugin/hosts/claude.py`) on every `Stop` event.
+Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/claude/`) on every `Stop` event.
 
 **Location:** `~/.claude/token-usage/usage.jsonl`
 **State file:** `~/.claude/token-usage/state.json` (per-session cumulative totals for delta computation)
@@ -64,7 +68,7 @@ Written by `plugin/track-tokens.py` (host module `plugin/hosts/claude.py`) on ev
 
 ### Codex
 
-Written by `plugin/track-tokens.py` (host module `plugin/hosts/codex.py`) on every `Stop` event.
+Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/codex/`) on every `Stop` event.
 
 **Location:** `~/.codex/token-usage/usage.jsonl`
 **State file:** `~/.codex/token-usage/state.json` (per-session cumulative totals for delta computation)
@@ -84,7 +88,7 @@ Written by `plugin/track-tokens.py` (host module `plugin/hosts/codex.py`) on eve
 - Token data comes from `token_count` events in the session transcript JSONL (`~/.codex/sessions/`).
 - `tokens.input` is fresh non-cached input only; cached input is stored separately as `tokens.cache_read`.
 - Reasoning tokens billed at output rate.
-- Cost rates per model (USD/million): see `plugin/hosts/codex.py`.
+- Cost rates per model (USD/million): see `plugin/hooks/hosts/codex/model_pricing.py`.
 
 ## Token usage widget
 
@@ -110,7 +114,7 @@ cd token-usage-app
 
 ## Plugin installation
 
-**Claude Code:** the sparse paths must include `plugin/` so the shared scripts get fetched.
+**Claude Code:** sparse paths must include `plugin/` so the `scripts` symlink target is present in the marketplace clone before install copies it into the plugin cache.
 ```bash
 claude plugin marketplace add lamphamTL/ai-plugins --sparse .claude-plugin claude plugin
 claude plugin install claude-assistant@ai-plugins

@@ -8,7 +8,7 @@ Hook scripts are shared with the Claude plugin and live in [`../plugin/`](../plu
 
 ### 1. Token Usage Log
 
-**Script:** [`../plugin/track-tokens.py`](../plugin/track-tokens.py) (via host module [`../plugin/hosts/codex.py`](../plugin/hosts/codex.py))
+**Script:** [`../plugin/hooks/track-tokens.py`](../plugin/hooks/track-tokens.py) (via host package [`../plugin/hooks/hosts/codex/`](../plugin/hooks/hosts/codex/))
 **Hook:** `Stop`
 
 Appends an incremental JSONL entry to `~/.codex/token-usage/usage.jsonl` at the end of every turn.
@@ -16,7 +16,7 @@ Appends an incremental JSONL entry to `~/.codex/token-usage/usage.jsonl` at the 
 
 ### 2. Prompt Dispatch
 
-**Script:** [`../plugin/static-dispatch.py`](../plugin/static-dispatch.py)
+**Script:** [`../plugin/hooks/static-dispatch.py`](../plugin/hooks/static-dispatch.py)
 **Hook:** `UserPromptSubmit`
 
 Intercepts prompts matching regex rules defined in `static-dispatch.json`, runs the corresponding shell command, and suppresses Codex inference.
@@ -41,7 +41,7 @@ Rules are matched top-to-bottom; first match wins. The matched prompt is availab
 
 ### 3. Cache Hit Alert
 
-**Script:** [`../plugin/track-tokens.py`](../plugin/track-tokens.py)
+**Script:** [`../plugin/hooks/track-tokens.py`](../plugin/hooks/track-tokens.py)
 **Hook:** `Stop`
 
 Fires a macOS notification when prompt-cache reuse drops below 90% on a turn — a leading indicator that workflow changes (new files in context, edits invalidating cached prefixes, model switches) are about to spike cost-per-event.

@@ -8,7 +8,7 @@ Hook scripts are shared with the Codex plugin and live in [`../plugin/`](../plug
 
 ### 1. Token Usage Log
 
-**Script:** [`../plugin/track-tokens.py`](../plugin/track-tokens.py) (via host module [`../plugin/hosts/claude.py`](../plugin/hosts/claude.py))
+**Script:** [`../plugin/hooks/track-tokens.py`](../plugin/hooks/track-tokens.py) (via host package [`../plugin/hooks/hosts/claude/`](../plugin/hooks/hosts/claude/))
 **Hook:** `Stop`
 
 Appends an incremental JSONL entry to `~/.claude/token-usage/usage.jsonl` at the end of every turn.
@@ -28,7 +28,7 @@ Cost rates for `claude-sonnet-4-6`:
 
 ### 2. Live Statusline
 
-**Script:** [`../plugin/statusline.py`](../plugin/statusline.py)
+**Script:** [`../plugin/hooks/statusline.py`](../plugin/hooks/statusline.py)
 **Config:** `statusLine` in `~/.claude/settings.json`
 
 Displays a colour-coded statusline after each response showing real-time token and cost metrics.
@@ -42,20 +42,20 @@ Wire it manually in `~/.claude/settings.json`:
 ```json
 "statusLine": {
   "type": "command",
-  "command": "python3 /path/to/plugin/statusline.py"
+  "command": "python3 /path/to/plugin/hooks/statusline.py"
 }
 ```
 
 ### 3. Compaction Analysis
 
-**Scripts:** [`../plugin/pre-compact.py`](../plugin/pre-compact.py), [`../plugin/post-compact.py`](../plugin/post-compact.py)
+**Scripts:** [`../plugin/hooks/pre-compact.py`](../plugin/hooks/pre-compact.py), [`../plugin/hooks/post-compact.py`](../plugin/hooks/post-compact.py)
 **Hooks:** `PreCompact`, `PostCompact`
 
 Snapshots context usage before compaction and computes the delta in the next `Stop` hook using `~/.claude/compaction/*.json` state files.
 
 ### 4. Prompt Dispatch
 
-**Script:** [`../plugin/static-dispatch.py`](../plugin/static-dispatch.py)
+**Script:** [`../plugin/hooks/static-dispatch.py`](../plugin/hooks/static-dispatch.py)
 **Hook:** `UserPromptSubmit`
 
 Intercepts prompts matching regex rules defined in `static-dispatch.json`, runs the corresponding shell command, and suppresses Claude inference.
@@ -80,7 +80,7 @@ Rules are matched top-to-bottom; first match wins. The matched prompt is availab
 
 ### 5. Cache Hit Alert
 
-**Script:** [`../plugin/track-tokens.py`](../plugin/track-tokens.py)
+**Script:** [`../plugin/hooks/track-tokens.py`](../plugin/hooks/track-tokens.py)
 **Hook:** `Stop`
 
 Fires a macOS notification when prompt-cache reuse drops below 90% on a turn — a leading indicator that workflow changes (new files in context, edits invalidating cached prefixes, model switches) are about to spike cost-per-event.

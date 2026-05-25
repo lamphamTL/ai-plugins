@@ -11,23 +11,27 @@ Plugins for Claude Code and Codex CLI, plus a native macOS token usage widget.
 
 ```text
 ai-plugins/
-├── plugin/
-│   ├── track-tokens.py           # shared driver — picks host module via INTENT_HOST
-│   ├── static-dispatch.py        # shared driver — prompt dispatch
-│   ├── pre-compact.py            # Claude-only hooks (still live under plugin/ for parity)
-│   ├── post-compact.py
-│   ├── statusline.py             # Claude-only live token/cost statusline
-│   ├── cleanup-state.py          # Claude-only maintenance
-│   ├── cleanup-subagent-rows.py  # Claude-only maintenance
-│   └── hosts/
-│       ├── claude.py             # prepare_data_source / compute_spend / paths
-│       └── codex.py              # same surface, Codex-shaped
+├── plugin/                       # shared script source (single source of truth)
+│   └── hooks/                    # both plugins symlink here
+│       ├── track-tokens.py       # shared driver — picks host module via INTENT_HOST
+│       ├── static-dispatch.py    # shared driver — prompt dispatch
+│       ├── pre-compact.py        # Claude-only hooks (live here for parity)
+│       ├── post-compact.py
+│       ├── statusline.py         # Claude-only live token/cost statusline
+│       ├── cleanup-state.py      # Claude-only maintenance
+│       └── hosts/                # per-host packages
+│           ├── claude/           # prepare_data_source / compute_spend / build_entry / …
+│           └── codex/            # same surface, Codex-shaped
 ├── claude/
 │   ├── .claude-plugin/plugin.json
-│   └── hooks/hooks.json          # paths point at ${CLAUDE_PLUGIN_ROOT}/../plugin/...
+│   └── hooks/
+│       ├── hooks.json            # paths point at ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/...
+│       └── scripts -> ../../plugin/hooks   # symlink; installer follows during copy
 ├── codex/
 │   ├── .codex-plugin/plugin.json
-│   └── hooks/hooks.json          # paths point at ${PLUGIN_ROOT}/../plugin/...
+│   └── hooks/
+│       ├── hooks.json            # paths point at ${PLUGIN_ROOT}/hooks/scripts/...
+│       └── scripts -> ../../plugin/hooks   # symlink; installer follows during copy
 └── token-usage-app/
     ├── README.md
     ├── build.sh                  # swiftc build script
@@ -59,7 +63,7 @@ See [`token-usage-app/README.md`](token-usage-app/README.md) for details and bui
 
 ## Marketplace Installation
 
-**Claude Code:** sparse paths must include `plugin/` so the shared scripts get fetched alongside the Claude manifest.
+**Claude Code:** sparse paths must include `plugin/` so the `scripts` symlink target is present in the marketplace clone before install copies it into the plugin cache.
 ```bash
 claude plugin marketplace add lamphamTL/ai-plugins --sparse .claude-plugin claude plugin
 claude plugin install claude-assistant@ai-plugins

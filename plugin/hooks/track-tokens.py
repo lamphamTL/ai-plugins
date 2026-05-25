@@ -30,22 +30,30 @@ if host not in HOSTS:
 
 cfg = HOSTS[host]
 sys.path.insert(0, str(Path(__file__).parent))
-plat = importlib.import_module(cfg["module"])
+
+def _load(name):
+    return getattr(importlib.import_module(f"{cfg['module']}.{name}"), name)
+
+prepare_data_source = _load("prepare_data_source")
+compute_spend       = _load("compute_spend")
+build_entry         = _load("build_entry")
+post_persist        = _load("post_persist")
+cache_hit_pct       = _load("cache_hit_pct")
 
 stdin_data = json.loads(sys.stdin.read())
-result = plat.prepare_data_source(stdin_data)
+result = prepare_data_source(stdin_data)
 if result is None:
     sys.exit(0)
 
-spend = plat.compute_spend(result["model"], result["deltas"])
-entry = plat.build_entry(result, spend)
+spend = compute_spend(result["model"], result["deltas"])
+entry = build_entry(result, spend)
 
 with open(cfg["usage_jsonl"], "a", encoding="utf-8") as f:
     f.write(json.dumps(entry) + "\n")
 
-plat.post_persist(entry, result)
+post_persist(entry, result)
 
-hit = plat.cache_hit_pct(result)
+hit = cache_hit_pct(result)
 if hit is not None and hit < 90:
     safe_project = result["project"].replace("\\", "\\\\").replace('"', '\\"')
     msg = f"Cache hit {hit}% in {safe_project}"
