@@ -11,32 +11,56 @@ Plugins for Claude Code and Codex CLI, plus a native macOS token usage widget.
 
 ```text
 ai-plugins/
+├── .claude-plugin/
+│   └── marketplace.json          # Claude Code marketplace manifest
+├── .agents/
+│   └── plugins/marketplace.json  # Codex marketplace manifest
 ├── plugin/                       # shared script source (single source of truth)
 │   └── hooks/                    # both plugins symlink here
 │       ├── track-tokens.py       # shared driver — picks host module via INTENT_HOST
 │       ├── static-dispatch.py    # shared driver — prompt dispatch
-│       ├── pre-compact.py        # Claude-only hooks (live here for parity)
-│       ├── post-compact.py
-│       ├── statusline.py         # Claude-only live token/cost statusline
-│       ├── cleanup-state.py      # Claude-only maintenance
+│       ├── pre-compact.py        # Claude-only: snapshot context pre-compaction
+│       ├── post-compact.py       # Claude-only: PostCompact placeholder
+│       ├── statusline.py         # Claude-only: live token/cost statusline
+│       ├── cleanup-state.py      # Claude-only: one-off state.json cleanup
 │       └── hosts/                # per-host packages
-│           ├── claude/           # prepare_data_source / compute_spend / build_entry / …
+│           ├── claude/
+│           │   ├── prepare_data_source.py
+│           │   ├── compute_spend.py
+│           │   ├── build_entry.py
+│           │   ├── model_pricing.py
+│           │   ├── cache_hit_pct.py
+│           │   └── post_persist.py
 │           └── codex/            # same surface, Codex-shaped
 ├── claude/
+│   ├── README.md
 │   ├── .claude-plugin/plugin.json
 │   └── hooks/
 │       ├── hooks.json            # paths point at ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/...
 │       └── scripts -> ../../plugin/hooks   # symlink; installer follows during copy
 ├── codex/
+│   ├── README.md
 │   ├── .codex-plugin/plugin.json
 │   └── hooks/
 │       ├── hooks.json            # paths point at ${PLUGIN_ROOT}/hooks/scripts/...
 │       └── scripts -> ../../plugin/hooks   # symlink; installer follows during copy
 └── token-usage-app/
     ├── README.md
+    ├── Package.swift             # SPM manifest (SPM broken on macOS 26 beta — use build.sh)
     ├── build.sh                  # swiftc build script
     ├── resources/                # screenshots
     └── Sources/TokenUsageApp/
+        ├── App/TokenUsageApp.swift          # NSPanel floating widget, login item
+        ├── Models/
+        │   ├── UsageEntry.swift             # Decodable JSONL row
+        │   └── TimeRange.swift              # TimeRangeKind + TimeWindow
+        ├── Services/
+        │   ├── UsageStore.swift             # @MainActor store, dual file watcher
+        │   └── FileWatcher.swift            # DispatchSource tail watcher
+        └── Views/
+            ├── ContentView.swift
+            ├── BarChartView.swift
+            └── NavigationBar.swift
 ```
 
 ## Components
