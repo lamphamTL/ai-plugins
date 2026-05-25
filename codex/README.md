@@ -1,59 +1,47 @@
 # codex-assistant
 
-A Codex plugin providing token usage tracking, a session cost statusline, and configurable prompt dispatch.
+A Codex plugin providing token usage tracking and configurable prompt dispatch.
+
+Hook scripts are shared with the Claude plugin and live in [`../plugin/`](../plugin/) at the repo root.
 
 ## Features
 
 ### 1. Token Usage Log
 
-**Script:** [`scripts/track-tokens.py`](scripts/track-tokens.py)
+**Script:** [`../plugin/track-tokens.py`](../plugin/track-tokens.py) (via host module [`../plugin/hosts/codex.py`](../plugin/hosts/codex.py))
 **Hook:** `Stop`
 
 Appends an incremental JSONL entry to `~/.codex/token-usage/usage.jsonl` at the end of every turn.
 `tokens.input` stores fresh non-cached input only; cached input is stored separately as `tokens.cache_read`.
 
-### 2. Session Statusline
+### 2. Prompt Dispatch
 
-**Script:** [`scripts/statusline.py`](scripts/statusline.py)
-**Hook:** `Stop`
-
-Prints a colour-coded cost summary to the console after each turn.
-
-### 3. Prompt Dispatch
-
-**Script:** [`scripts/static-dispatch.py`](scripts/static-dispatch.py)
+**Script:** [`../plugin/static-dispatch.py`](../plugin/static-dispatch.py)
 **Hook:** `UserPromptSubmit`
 
-Intercepts prompts matching regex rules defined in `static-dispatch.toml`, runs the corresponding shell command, and suppresses Codex inference.
+Intercepts prompts matching regex rules defined in `static-dispatch.json`, runs the corresponding shell command, and suppresses Codex inference.
 
 Config is loaded from the first file found (project takes precedence):
-1. `{cwd}/static-dispatch.toml`
-2. `~/.codex/static-dispatch.toml`
+1. `{cwd}/static-dispatch.json`
+2. `~/.codex/static-dispatch.json`
 
 Example config:
 
-```toml
-# matches: "commit and push", "commit, push"
-[[rule]]
-pattern = "^commit[,.]?\\s+(and\\s+)?push[.!]?$"
-command = "git add -A && git diff --staged --stat | tail -1 | xargs -I{} git commit -m '{}' && git push"
-
-# matches: "commit", "commit.", "commit!"
-[[rule]]
-pattern = "^commit[.!]?$"
-command = "git add -A && git diff --staged --stat | tail -1 | xargs -I{} git commit -m '{}'"
-
-# matches: "push", "push.", "push!"
-[[rule]]
-pattern = "^push[.!]?$"
-command = "git push"
+```json
+{
+  "rule": [
+    {"pattern": "^commit[,.]?\\s+(and\\s+)?push[.!]?$", "command": "git add -A && git diff --staged --stat | tail -1 | xargs -I{} git commit -m '{}' && git push"},
+    {"pattern": "^commit[.!]?$", "command": "git add -A && git diff --staged --stat | tail -1 | xargs -I{} git commit -m '{}'"},
+    {"pattern": "^push[.!]?$", "command": "git push"}
+  ]
+}
 ```
 
 Rules are matched top-to-bottom; first match wins. The matched prompt is available as `INTENT_PROMPT` env var in the command.
 
-### 4. Cache Hit Alert
+### 3. Cache Hit Alert
 
-**Script:** [`scripts/track-tokens.py`](scripts/track-tokens.py)
+**Script:** [`../plugin/track-tokens.py`](../plugin/track-tokens.py)
 **Hook:** `Stop`
 
 Fires a macOS notification when prompt-cache reuse drops below 90% on a turn — a leading indicator that workflow changes (new files in context, edits invalidating cached prefixes, model switches) are about to spike cost-per-event.
@@ -71,19 +59,12 @@ Triggered once per turn, after the JSONL entry is written. Alert dispatched via 
 - turn fresh input ≥ 1000 tokens — skip trivial turns
 - hit < 90%
 
-**Statusline** also shows live `hit:<pct>%` (green ≥80%, yellow ≥50%, red below) so you can watch the rate without waiting for an alert.
-
 > **macOS permission:** banners appear only if **System Settings → Notifications → Script Editor → Alert style** is set to `Banners` or `Alerts`. Otherwise sound plays but the message is routed silently into Notification Center.
 
 ## File Structure
 
 ```text
 codex/
-├── .codex-plugin/
-│   └── plugin.json
-├── hooks.json
-└── scripts/
-    ├── static-dispatch.py
-    ├── track-tokens.py
-    └── statusline.py
+├── .codex-plugin/plugin.json
+└── hooks/hooks.json          # wires the shared scripts in ../plugin/
 ```

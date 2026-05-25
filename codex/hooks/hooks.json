@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/static-dispatch.py\"",
+            "command": "INTENT_HOST=codex python3 \"${PLUGIN_ROOT}/../plugin/static-dispatch.py\"",
             "statusMessage": "Checking git intent"
           }
         ]
@@ -16,17 +16,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/track-tokens.py\"",
+            "command": "python3 \"${PLUGIN_ROOT}/../plugin/track-tokens.py\" codex",
             "statusMessage": "Tracking tokens"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/scripts/statusline.py\"",
-            "statusMessage": "Showing usage"
           }
         ]
       }
