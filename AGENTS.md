@@ -2,50 +2,12 @@
 
 Plugins for Claude Code and Codex CLI, plus a native macOS token usage widget.
 
-## Repo structure
-
-```
-ai-plugins/
-├── plugin/                       # Shared hook scripts (used by both plugins)
-│   └── hooks/                    # Single source of truth — both plugins symlink here
-│       ├── track-tokens.py       # Driver — appends JSONL entry per Stop event
-│       ├── static-dispatch.py    # Driver — UserPromptSubmit prompt dispatch
-│       ├── pre-compact.py        # Claude-only: snapshot context before compaction
-│       ├── post-compact.py       # Claude-only: PostCompact placeholder
-│       ├── statusline.py         # Claude-only: live token/cost statusline
-│       ├── cleanup-state.py      # Claude-only: one-off state.json cleanup
-│       └── hosts/                # Per-host packages consumed by the drivers
-│           ├── claude/           # prepare_data_source, compute_spend, build_entry…
-│           └── codex/            # same surface, Codex-shaped
-├── claude/                       # Claude Code plugin (wires shared scripts)
-│   ├── .claude-plugin/plugin.json
-│   └── hooks/
-│       ├── hooks.json            # Points at ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/...
-│       └── scripts -> ../../plugin/hooks   # symlink; installer follows during cache copy
-├── codex/                        # Codex CLI plugin (wires shared scripts)
-│   ├── .codex-plugin/plugin.json
-│   └── hooks/
-│       ├── hooks.json            # Points at ${PLUGIN_ROOT}/hooks/scripts/...
-│       └── scripts -> ../../plugin/hooks   # symlink; installer follows during cache copy
-└── token-usage-app/              # Native macOS SwiftUI widget
-    ├── build.sh                  # Build script (uses swiftc directly — SPM broken on macOS 26 beta)
-    ├── resources/                # Screenshots and assets
-    └── Sources/TokenUsageApp/
-        ├── App/TokenUsageApp.swift      # NSPanel floating widget, SMAppService login item
-        ├── Models/UsageEntry.swift      # Decodable JSONL row
-        ├── Models/TimeRange.swift       # TimeRangeKind + TimeWindow
-        ├── Services/UsageStore.swift    # @MainActor store, dual file watcher (Claude + Codex)
-        ├── Services/FileWatcher.swift   # DispatchSource tail watcher
-        └── Views/                       # ContentView, BarChartView, NavigationBar
-```
-
-Each hooks.json sets `INTENT_HOST=claude` or `INTENT_HOST=codex` on the script command so the shared driver imports the right `plugin/hooks/hosts/<host>/` package.
 
 ## Token usage logs
 
 ### Claude
 
-Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/claude/`) on every `Stop` event.
+Written by `plugin/hooks/scripts/track-tokens.py` (host package `plugin/hooks/hosts/claude/`) on every `Stop` event.
 
 **Location:** `~/.claude/token-usage/usage.jsonl`
 **State file:** `~/.claude/token-usage/state.json` (per-session cumulative totals for delta computation)
@@ -68,7 +30,7 @@ Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/clau
 
 ### Codex
 
-Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/codex/`) on every `Stop` event.
+Written by `plugin/hooks/scripts/track-tokens.py` (host package `plugin/hooks/hosts/codex/`) on every `Stop` event.
 
 **Location:** `~/.codex/token-usage/usage.jsonl`
 **State file:** `~/.codex/token-usage/state.json` (per-session cumulative totals for delta computation)
@@ -114,15 +76,16 @@ cd token-usage-app
 
 ## Plugin installation
 
-**Claude Code:** sparse paths must include `plugin/` so the `scripts` symlink target is present in the marketplace clone before install copies it into the plugin cache.
+**Claude Code:**
 ```bash
-claude plugin marketplace add lamphamTL/ai-plugins --sparse .claude-plugin claude plugin
+claude plugin marketplace add lamphamTL/ai-plugins --sparse .claude-plugin plugin
 claude plugin install claude-assistant@ai-plugins
 ```
 
 **Codex:**
 ```bash
 codex plugin marketplace add lamphamTL/ai-plugins
+codex plugin add codex-assistant@ai-plugins
 ```
 
 ## Updating plugins after hook changes

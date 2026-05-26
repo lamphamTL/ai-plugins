@@ -12,7 +12,7 @@
         "name": "lamp"
       },
       "category": "productivity",
-      "source": "./claude"
+      "source": "./plugin"
     }
   ]
 }

@@ -2,9 +2,7 @@
 
 Plugins for Claude Code and Codex CLI, plus a native macOS token usage widget.
 
-- [`plugin/`](plugin/) — shared hook scripts (drivers + per-host modules)
-- [`claude/`](claude/) — Claude Code plugin manifest + hooks.json wiring
-- [`codex/`](codex/) — Codex CLI plugin manifest + hooks.json wiring
+- [`plugin/`](plugin/) — shared plugin source: hosts both Claude and Codex manifests plus all hook scripts
 - [`token-usage-app/`](token-usage-app/) — macOS floating widget to visualise AI spend
 
 
@@ -32,15 +30,15 @@ See [`token-usage-app/README.md`](token-usage-app/README.md) for details and bui
 
 ## Marketplace Installation
 
-**Claude Code:** sparse paths must include `plugin/` so the `scripts` symlink target is present in the marketplace clone before install copies it into the plugin cache.
+**Claude Code:**
 ```bash
-claude plugin marketplace add lamphamTL/ai-plugins --sparse .claude-plugin claude plugin
+claude plugin marketplace add lamphamTL/ai-plugins --sparse .claude-plugin plugin
 claude plugin install claude-assistant@ai-plugins
 ```
 
 **Codex:**
 ```bash
-codex plugin marketplace add lamphamTL/ai-plugins
+codex plugin marketplace add lamphamTL/ai-plugins --sparse .agents/plugins --sparse plugin
 codex plugin add codex-assistant@ai-plugins
 ```
 
