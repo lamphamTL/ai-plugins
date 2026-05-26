@@ -37,14 +37,13 @@ Displays a colour-coded statusline after each response showing real-time token a
 [claude-sonnet-4-6] in:37(330529) out:4278 cache(r/w):293471/31058 ctx:0% cost:$0.2687
 ```
 
-Wire it manually in `~/.claude/settings.json`:
+Wire it via the bundled skill (writes `~/.claude/settings.json` idempotently):
 
-```json
-"statusLine": {
-  "type": "command",
-  "command": "python3 /path/to/plugin/hooks/statusline.py"
-}
 ```
+/statusLine-wizard install
+```
+
+Re-run after every plugin version bump — settings.json hardcodes the cached version path. `/statusLine-wizard status` reports current state; `/statusLine-wizard uninstall` removes it. Skill source: [`skills/statusLine-wizard/`](skills/statusLine-wizard/).
 
 ### 3. Compaction Analysis
 
