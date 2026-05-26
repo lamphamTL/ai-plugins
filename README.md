@@ -38,7 +38,7 @@ claude plugin install claude-assistant@ai-plugins
 
 **Codex:**
 ```bash
-codex plugin marketplace add lamphamTL/ai-plugins
+codex plugin marketplace add lamphamTL/ai-plugins --sparse .agents/plugins --sparse plugin
 codex plugin add codex-assistant@ai-plugins
 ```
 
