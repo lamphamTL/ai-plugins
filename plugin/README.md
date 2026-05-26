@@ -27,6 +27,8 @@ Each `hooks.json` sets `INTENT_HOST=claude` or `INTENT_HOST=codex` on the script
 
 ### 1. Token Usage Log
 
+**Availability**: Claude + Codex
+
 **Script:** `hooks/track-tokens.py`
 **Hook:** `Stop` (+ `SubagentStop` for Claude)
 
@@ -44,7 +46,9 @@ Claude cost rates (`claude-sonnet-4-6`):
 
 Codex rates per model: see `hooks/hosts/codex/model_pricing.py`.
 
-### 2. Live Statusline (Claude only)
+### 2. Live Statusline
+
+**Availability**: Claude only
 
 **Script:** `hooks/statusline.py`
 **Config:** `statusLine` in `~/.claude/settings.json`
@@ -61,7 +65,9 @@ Wire via the bundled skill (idempotent):
 
 Re-run after every plugin version bump — `settings.json` hardcodes the cached version path. `/statusLine-wizard status` reports state; `/statusLine-wizard uninstall` removes it. Source: `skills/statusLine-wizard/`.
 
-### 3. Compaction Analysis (Claude only)
+### 3. Compaction Analysis
+
+**Availability**: Claude only
 
 **Scripts:** `hooks/pre-compact.py`, `hooks/post-compact.py`
 **Hooks:** `PreCompact`, `PostCompact`
@@ -69,6 +75,8 @@ Re-run after every plugin version bump — `settings.json` hardcodes the cached 
 Snapshots context before compaction, computes delta on next `Stop` via `~/.claude/compaction/*.json`.
 
 ### 4. Prompt Dispatch
+
+**Availability**: Claude + Codex
 
 **Script:** `hooks/static-dispatch.py`
 **Hook:** `UserPromptSubmit`
@@ -92,6 +100,8 @@ Config search order (project first):
 Rules match top-to-bottom; first wins. Matched prompt available as `INTENT_PROMPT` env var.
 
 ### 5. Cache Hit Alert
+
+**Availability**: Claude + Codex
 
 **Script:** `hooks/track-tokens.py`
 **Hook:** `Stop`
