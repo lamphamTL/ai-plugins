@@ -22,7 +22,7 @@ Pick a chart type from the header menu. All charts respect the active source / p
 | **Cache hit** | `Cache hit` | Prompt-cache reuse ratio per bucket: `cache_read / (input + cache_read + cache_write)` for Claude, `cached_input / (fresh_input + cached_input)` for Codex | Spot cache invalidation regressions — drops correlate with `$/event` spikes |
 
 
-Low-cache-hit alerts are fired from the Stop hooks in the plugins — see [`claude/README.md`](../claude/README.md#5-cache-hit-alert) and [`codex/README.md`](../codex/README.md#4-cache-hit-alert).
+Low-cache-hit alerts are fired from the Stop hooks in the plugin — see [`plugin/README.md`](../plugin/README.md#5-cache-hit-alert).
 
 ## Requirements
 

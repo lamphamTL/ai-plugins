@@ -8,7 +8,7 @@
       "name": "codex-assistant",
       "source": {
         "source": "local",
-        "path": "./codex"
+        "path": "./plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
