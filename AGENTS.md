@@ -7,7 +7,7 @@ Plugins for Claude Code and Codex CLI, plus a native macOS token usage widget.
 
 ### Claude
 
-Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/claude/`) on every `Stop` event.
+Written by `plugin/hooks/scripts/track-tokens.py` (host package `plugin/hooks/hosts/claude/`) on every `Stop` event.
 
 **Location:** `~/.claude/token-usage/usage.jsonl`
 **State file:** `~/.claude/token-usage/state.json` (per-session cumulative totals for delta computation)
@@ -30,7 +30,7 @@ Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/clau
 
 ### Codex
 
-Written by `plugin/hooks/track-tokens.py` (host package `plugin/hooks/hosts/codex/`) on every `Stop` event.
+Written by `plugin/hooks/scripts/track-tokens.py` (host package `plugin/hooks/hosts/codex/`) on every `Stop` event.
 
 **Location:** `~/.codex/token-usage/usage.jsonl`
 **State file:** `~/.codex/token-usage/state.json` (per-session cumulative totals for delta computation)

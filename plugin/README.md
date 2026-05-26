@@ -12,13 +12,14 @@ plugin/
 └── hooks/
     ├── claude.json               # Claude events, ${CLAUDE_PLUGIN_ROOT}
     ├── codex.json                # Codex events, ${PLUGIN_ROOT}
-    ├── track-tokens.py           # Stop hook (both hosts)
-    ├── static-dispatch.py        # UserPromptSubmit (both hosts)
-    ├── pre-compact.py            # PreCompact (Claude only)
-    ├── post-compact.py           # PostCompact (Claude only)
-    ├── statusline.py             # Claude statusline command
-    ├── cleanup-state.py          # one-off state.json cleanup
-    └── hosts/{claude,codex}/     # host-specific packages used by the drivers
+    ├── hosts/{claude,codex}/     # host-specific packages used by the drivers
+    └── scripts/
+        ├── track-tokens.py       # Stop hook (both hosts)
+        ├── static-dispatch.py    # UserPromptSubmit (both hosts)
+        ├── pre-compact.py        # PreCompact (Claude only)
+        ├── post-compact.py       # PostCompact (Claude only)
+        ├── statusline.py         # Claude statusline command
+        └── cleanup-state.py      # one-off state.json cleanup
 ```
 
 Each `hooks.json` sets `INTENT_HOST=claude` or `INTENT_HOST=codex` on the script command so the shared driver imports the right `hosts/<host>/` package.
@@ -29,7 +30,7 @@ Each `hooks.json` sets `INTENT_HOST=claude` or `INTENT_HOST=codex` on the script
 
 **Availability**: Claude + Codex
 
-**Script:** `hooks/track-tokens.py`
+**Script:** `hooks/scripts/track-tokens.py`
 **Hook:** `Stop` (+ `SubagentStop` for Claude)
 
 Claude → appends incremental JSONL entry to `~/.claude/token-usage/usage.jsonl`.
@@ -50,7 +51,7 @@ Codex rates per model: see `hooks/hosts/codex/model_pricing.py`.
 
 **Availability**: Claude only
 
-**Script:** `hooks/statusline.py`
+**Script:** `hooks/scripts/statusline.py`
 **Config:** `statusLine` in `~/.claude/settings.json`
 
 ```text
@@ -69,7 +70,7 @@ Re-run after every plugin version bump — `settings.json` hardcodes the cached 
 
 **Availability**: Claude only
 
-**Scripts:** `hooks/pre-compact.py`, `hooks/post-compact.py`
+**Scripts:** `hooks/scripts/pre-compact.py`, `hooks/scripts/post-compact.py`
 **Hooks:** `PreCompact`, `PostCompact`
 
 Snapshots context before compaction, computes delta on next `Stop` via `~/.claude/compaction/*.json`.
@@ -78,7 +79,7 @@ Snapshots context before compaction, computes delta on next `Stop` via `~/.claud
 
 **Availability**: Claude + Codex
 
-**Script:** `hooks/static-dispatch.py`
+**Script:** `hooks/scripts/static-dispatch.py`
 **Hook:** `UserPromptSubmit`
 
 Intercepts prompts matching regex rules and runs corresponding shell commands, suppressing inference.
@@ -103,7 +104,7 @@ Rules match top-to-bottom; first wins. Matched prompt available as `INTENT_PROMP
 
 **Availability**: Claude + Codex
 
-**Script:** `hooks/track-tokens.py`
+**Script:** `hooks/scripts/track-tokens.py`
 **Hook:** `Stop`
 
 Fires macOS notification when prompt-cache reuse drops below 90% — leading indicator of context/edit changes about to spike cost-per-event.

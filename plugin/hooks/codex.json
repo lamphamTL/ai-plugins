@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INTENT_HOST=codex python3 \"${PLUGIN_ROOT}/hooks/static-dispatch.py\"",
+            "command": "INTENT_HOST=codex python3 \"${PLUGIN_ROOT}/hooks/scripts/static-dispatch.py\"",
             "statusMessage": "Checking git intent"
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/hooks/track-tokens.py\" codex",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/scripts/track-tokens.py\" codex",
             "statusMessage": "Tracking tokens"
           }
         ]

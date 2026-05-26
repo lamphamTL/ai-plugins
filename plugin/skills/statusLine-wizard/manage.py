@@ -17,7 +17,7 @@ def plugin_root() -> Path:
 
 
 def statusline_cmd() -> str:
-    script = plugin_root() / "hooks" / "statusline.py"
+    script = plugin_root() / "hooks" / "scripts" / "statusline.py"
     return f'python3 "{script}"'
 
 

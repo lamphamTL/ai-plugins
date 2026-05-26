@@ -29,7 +29,7 @@ if host not in HOSTS:
     sys.exit(1)
 
 cfg = HOSTS[host]
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def _load(name):
     return getattr(importlib.import_module(f"{cfg['module']}.{name}"), name)

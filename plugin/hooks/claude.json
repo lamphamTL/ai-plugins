@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INTENT_HOST=claude python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/static-dispatch.py\""
+            "command": "INTENT_HOST=claude python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/static-dispatch.py\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pre-compact.py\""
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post-compact.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-compact.py\""
           }
         ]
       }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/track-tokens.py\" claude"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/track-tokens.py\" claude"
           }
         ]
       }
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/track-tokens.py\" claude"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/track-tokens.py\" claude"
           }
         ]
       }
