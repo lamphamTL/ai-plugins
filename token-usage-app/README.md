@@ -6,6 +6,8 @@ A native macOS floating widget that visualises Claude Code and Codex token costs
 |:-----------:|:-----------:|:----------:|
 | ![All usage](resources/all-usage.png) | ![Claude usage](resources/claude-usage.png) | ![Codex usage](resources/codex-usage.png) |
 
+**[▶ Try it live](https://lamphamtl.github.io/ai-plugins/token-usage-app/snapshot.html)** — interactive HTML preview, no install needed.
+
 ## Features
 
 Visualise AI spending (USD) across Claude and Codex sessions. Filter by tool (Claude / Codex), project, and timeframe (day / week / month).

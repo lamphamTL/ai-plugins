@@ -5,6 +5,7 @@ Plugins for Claude Code and Codex CLI, plus a native macOS token usage widget.
 - [`plugin/`](plugin/) — shared plugin source: hosts both Claude and Codex manifests plus all hook scripts
 - [`token-usage-app/`](token-usage-app/) — macOS floating widget to visualise AI spend
 
+**[▶ Try the Token Usage app live](https://lamphamtl.github.io/ai-plugins/token-usage-app/snapshot.html)** — interactive HTML preview, no install needed.
 
 ## Components
 

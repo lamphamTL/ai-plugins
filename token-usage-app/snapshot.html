@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Usage Widget — Interactive Preview</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Inter", sans-serif;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #fff;
+}
+
+/* Fake macOS menu bar */
+.menubar {
+  width: 320px;
+  box-sizing: border-box;
+  height: 28px;
+  background: rgba(20, 20, 22, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  user-select: none;
+}
+
+.menubar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.menubar-app-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+}
+
+.menubar-menu-item {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.8);
+}
+
+.menubar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.menubar-cost {
+  font-size: 12px;
+  font-weight: 400;
+  color: #FF8C00;
+}
+
+/* Panel */
+.panel-wrap {
+  position: relative;
+  width: 320px;
+}
+
+.panel {
+  position: relative;
+  width: 320px;
+  border-radius: 22px;
+  background: rgba(28, 28, 38, 0.82);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 8px 24px rgba(0,0,0,.25), 0 2px 4px rgba(0,0,0,.1);
+  overflow: visible;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.panel-inner {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 22px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 4px;
+}
+
+.header-spacer { flex: 1; }
+
+.pill-group {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 9px;
+}
+
+.pill {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1.4;
+  font-family: inherit;
+}
+
+.pill.active {
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.95);
+}
+
+.icon-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.45);
+  flex-shrink: 0;
+  position: relative;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.icon-btn:hover { background: rgba(255,255,255,0.1); }
+
+.icon-btn.active-mode {
+  background: rgba(52,199,89,0.25);
+  color: #34c759;
+}
+
+.icon-btn.filter-active {
+  background: rgba(10,132,255,0.15);
+  color: #0a84ff;
+}
+
+.filter-badge {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0a84ff;
+  display: none;
+}
+
+.filter-badge.visible { display: block; }
+
+.close-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.25);
+  font-family: inherit;
+  position: relative;
+  transition: color 0.15s;
+}
+
+.close-btn:hover { color: rgba(255,255,255,0.6); }
+
+/* Source picker */
+.source-row {
+  display: flex;
+  justify-content: center;
+  padding: 0 14px 4px;
+}
+
+/* Credits bar */
+.credits-bar-wrap {
+  padding: 0 14px 6px;
+  display: none;
+}
+
+.credits-bar-wrap.visible { display: block; }
+
+.credits-bar-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.credits-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+}
+
+.credits-value {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.credits-track {
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.credits-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+/* Nav bar */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 2px;
+}
+
+.nav-chevron {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.45);
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.nav-chevron:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.nav-date-label {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now-btn {
+  font-size: 10px;
+  font-weight: 500;
+  color: #0a84ff;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 4px;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+/* Chart area */
+.chart-area {
+  padding: 0 14px 0;
+}
+
+.chart-svg {
+  width: 100%;
+  display: block;
+}
+
+.x-axis-labels {
+  display: flex;
+  padding: 2px 0 0;
+  height: 28px;
+}
+
+.x-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+  flex: 1;
+}
+
+.x-label-day {
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.x-label-num {
+  font-size: 9px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.3;
+}
+
+.x-label-today {
+  font-size: 9px;
+  font-weight: 700;
+  color: #0a84ff;
+}
+
+/* Footer */
+.footer {
+  padding: 4px 14px 10px;
+  display: flex;
+  align-items: baseline;
+  position: relative;
+  min-height: 28px;
+}
+
+.footer-primary {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1;
+}
+
+.footer-spacer { flex: 1; }
+
+.footer-secondary {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.75);
+}
+
+.footer-credits {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,196,0,0.85);
+}
+
+/* Popover menus */
+.popover {
+  position: absolute;
+  background: rgba(44,44,58,0.97);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.12);
+  z-index: 100;
+  min-width: 160px;
+  padding: 4px;
+  display: none;
+}
+
+.popover.open { display: block; }
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.88);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+
+.popover-item:hover { background: rgba(255,255,255,0.1); }
+
+.popover-item.active { font-weight: 500; }
+
+.popover-checkmark {
+  font-size: 11px;
+  color: #0a84ff;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.popover-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.35);
+  padding: 6px 10px 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.popover-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  margin: 3px 0;
+}
+
+/* Chart mode popover — top-right of header */
+#chartModePopover {
+  top: 36px;
+  right: 36px;
+}
+
+/* Filter popover */
+#filterPopover {
+  top: 36px;
+  right: 14px;
+  min-width: 180px;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+  z-index: 200;
+  top: -28px;
+  right: 0;
+}
+
+.tooltip.visible { display: block; }
+
+
+</style>
+</head>
+<body>
+
+<div class="panel-wrap">
+  <!-- Fake macOS menu bar -->
+  <div class="menubar">
+    <div class="menubar-left">
+      <span class="menubar-app-name">Token Usage</span>
+      <span class="menubar-menu-item">File</span>
+      <span class="menubar-menu-item">Edit</span>
+      <span class="menubar-menu-item">View</span>
+      <span class="menubar-menu-item">Window</span>
+      <span class="menubar-menu-item">Help</span>
+    </div>
+    <div class="menubar-right">
+      <svg width="14" height="16" viewBox="0 0 24 28" fill="#FF8C00" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2 C12 2 8 7 8 12 C8 13.5 8.5 15 9.5 16 C9.5 16 9 14 10 13 C10.5 12.3 11 11 11 10 C11 10 13 12 13 15 C13 16.5 12.2 17.8 11 18.5 C13 17.5 15 15.5 15 12.5 C15 11 14.5 9.5 14 8.5 C14 8.5 16 11 16 14.5 C16 18 14 21 11.5 22.5 C14 22 18 19 18 14 C18 9 14 4 12 2Z"/>
+      </svg>
+      <span class="menubar-cost" id="menubarCost">$0.00</span>
+    </div>
+  </div>
+  <div class="panel" id="panel">
+    <div class="panel-inner">
+
+      <!-- Header -->
+      <div class="header" id="header">
+        <div class="header-spacer"></div>
+
+        <!-- Range pills -->
+        <div class="pill-group" id="rangePills">
+          <button class="pill active" data-kind="day">D</button>
+          <button class="pill" data-kind="week">W</button>
+          <button class="pill" data-kind="month">M</button>
+        </div>
+
+        <!-- Chart mode (ellipsis) -->
+        <button class="icon-btn" id="chartModeBtn" title="Chart mode" onclick="toggleChartModeMenu(event)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+
+        <!-- Filter menu -->
+        <button class="icon-btn" id="filterBtn" title="Filters" onclick="toggleFilterMenu(event)">
+          <span class="filter-badge" id="filterBadge"></span>
+          <svg width="14" height="12" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="1" y1="2" x2="17" y2="2"/>
+            <line x1="3" y1="7" x2="15" y2="7"/>
+            <line x1="5" y1="12" x2="13" y2="12"/>
+          </svg>
+        </button>
+
+        <!-- Close -->
+        <button class="close-btn" id="closeBtn" onclick="showCloseTooltip()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10" opacity="0.5"/>
+            <path stroke="white" stroke-width="2" stroke-linecap="round" d="M9 9l6 6M15 9l-6 6" fill="none"/>
+          </svg>
+          <span class="tooltip" id="closeTooltip">close in the real app</span>
+        </button>
+      </div>
+
+      <!-- Source picker -->
+      <div class="source-row">
+        <div class="pill-group" id="sourcePills">
+          <button class="pill active" data-source="null">All</button>
+          <button class="pill" data-source="claude">Claude</button>
+          <button class="pill" data-source="codex">Codex</button>
+        </div>
+      </div>
+
+      <!-- Weekly credits bar (Codex only) -->
+      <div class="credits-bar-wrap" id="creditsBar">
+        <div class="credits-bar-header">
+          <span class="credits-label">Weekly credits</span>
+          <span class="credits-value" id="creditsValue">620.0 / 1000</span>
+        </div>
+        <div class="credits-track">
+          <div class="credits-fill" id="creditsFill" style="width: 62%; background: #ffd60a;"></div>
+        </div>
+      </div>
+
+      <!-- Nav bar -->
+      <div class="nav-bar">
+        <button class="nav-chevron" id="chevronLeft" onclick="shiftLeft()">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <span class="nav-date-label" id="navDateLabel">loading...</span>
+        <button class="now-btn" id="nowBtn" onclick="goToNow()" style="display:none">Now</button>
+        <button class="nav-chevron" id="chevronRight" onclick="shiftRight()">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-area" id="chartArea">
+        <svg class="chart-svg" id="chartSvg" viewBox="0 0 280 140" preserveAspectRatio="none"></svg>
+        <div class="x-axis-labels" id="xAxisLabels"></div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer" id="footer">
+        <span class="footer-primary" id="footerPrimary"></span>
+        <div class="footer-spacer"></div>
+        <span class="footer-secondary" id="footerSecondary"></span>
+        <span class="footer-credits" id="footerCredits"></span>
+      </div>
+
+    </div><!-- panel-inner -->
+
+    <!-- Popovers (inside panel for positioning) -->
+    <div class="popover" id="chartModePopover">
+      <button class="popover-item" data-mode="cost" onclick="setChartMode('cost')">
+        <span class="popover-checkmark" id="chk-cost">✓</span>Spend
+      </button>
+      <button class="popover-item" data-mode="credits" id="creditsMenuItem" onclick="setChartMode('credits')" style="display:none">
+        <span class="popover-checkmark" id="chk-credits"></span>Credits
+      </button>
+      <button class="popover-item" data-mode="efficiency" onclick="setChartMode('efficiency')">
+        <span class="popover-checkmark" id="chk-efficiency"></span>Cost per event
+      </button>
+      <button class="popover-item" data-mode="eventCount" onclick="setChartMode('eventCount')">
+        <span class="popover-checkmark" id="chk-eventCount"></span>Event count
+      </button>
+      <button class="popover-item" data-mode="cacheHitRate" onclick="setChartMode('cacheHitRate')">
+        <span class="popover-checkmark" id="chk-cacheHitRate"></span>Cache hit
+      </button>
+    </div>
+
+    <div class="popover" id="filterPopover">
+      <div class="popover-section-label">Project</div>
+      <div id="filterProjectItems"></div>
+      <div class="popover-divider"></div>
+      <div class="popover-section-label">Model</div>
+      <div id="filterModelItems"></div>
+      <div class="popover-divider" id="filterResetDivider"></div>
+      <div id="filterActionItems">
+        <button class="popover-item" id="resetFiltersBtn" onclick="resetFilters()" style="display:none">
+          <span class="popover-checkmark"></span>Reset filters
+        </button>
+        <button class="popover-item" onclick="reloadData()">
+          <span class="popover-checkmark"></span>Reload
+        </button>
+        <button class="popover-item" onclick="openInWindow()">
+          <span class="popover-checkmark"></span>Open in window
+        </button>
+      </div>
+    </div>
+
+  </div><!-- panel -->
+</div><!-- panel-wrap -->
+
+<script>
+// ─── PRNG ────────────────────────────────────────────────────────────────────
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+  source: null,
+  kind: 'day',
+  scrollOffset: 0,
+  project: null,
+  model: null,
+  chartMode: 'cost',
+  selectedBucket: null,
+  seed: 42,
+  chartModeMenuOpen: false,
+  filterMenuOpen: false
+};
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const PROJECTS = ['ai-plugins', 'dotfiles', 'work-repo', 'scratch', 'side-proj'];
+const PROJECT_WEIGHTS = [0.35, 0.20, 0.25, 0.10, 0.10];
+const PROJECT_COLORS = ['#0A84FF', '#BF5AF2', '#FF9F0A', '#64D2FF', '#FF375F'];
+// indigo=#5E5CE6, mint=#63E6E2 available for future projects
+const CLAUDE_LEAN = [0.70, 0.55, 0.40, 0.60, 0.50]; // fraction going to claude
+const CLAUDE_MODELS = ['claude-sonnet-4-6', 'claude-opus-4-7'];
+const CODEX_MODELS  = ['gpt-5.5', 'gpt-5.5-mini'];
+const CREDITS_LIMIT = 1000;
+const DAYS = 30;
+
+// ─── Data generation ─────────────────────────────────────────────────────────
+let rawData = [];
+
+function generateData(seed) {
+  const rng = mulberry32(seed);
+  const today = new Date();
+  today.setHours(23, 59, 0, 0);
+  rawData = [];
+
+  for (let d = DAYS - 1; d >= 0; d--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - d);
+    date.setHours(12, 0, 0, 0);
+
+    // Daily totals
+    const totalSpend  = 10 + rng() * 20;  // $10-30
+    const totalEvents = 20 + rng() * 40;  // 20-60
+    const cacheHit    = 0.60 + rng() * 0.35; // 0.60-0.95
+    const totalCodexCredits = 50 + rng() * 100; // 50-150 per day for codex
+
+    for (let pi = 0; pi < PROJECTS.length; pi++) {
+      const projFrac = PROJECT_WEIGHTS[pi];
+      const lean     = CLAUDE_LEAN[pi];
+
+      // Split between claude and codex
+      const claudeFrac = lean * (0.85 + rng() * 0.30); // slight daily jitter
+      const codexFrac  = 1 - claudeFrac;
+
+      const sources = [
+        { source: 'claude', frac: claudeFrac, models: CLAUDE_MODELS },
+        { source: 'codex',  frac: codexFrac,  models: CODEX_MODELS  }
+      ];
+
+      for (const { source, frac, models } of sources) {
+        const spend  = totalSpend  * projFrac * frac;
+        const events = Math.round(totalEvents * projFrac * frac);
+        if (events < 1) continue;
+
+        // Pick a model for this entry
+        const model = models[Math.floor(rng() * models.length)];
+
+        // Cache tokens (derive hit rate)
+        const cacheRead  = Math.round(events * 80000 * cacheHit);
+        const cacheWrite = Math.round(events * 8000 * (1 - cacheHit));
+        const inputTok   = Math.round(events * 500);
+
+        // Codex credits: split daily total by project weight; Claude = 0
+        const credits = source === 'codex' ? totalCodexCredits * projFrac : 0;
+
+        rawData.push({
+          ts: new Date(date),
+          project: PROJECTS[pi],
+          source,
+          model,
+          cost_usd: spend,
+          eventCount: events,
+          cacheRead,
+          cacheWrite,
+          inputTok,
+          credits
+        });
+      }
+    }
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function isoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function bucketStart(date, kind) {
+  const d = new Date(date);
+  if (kind === 'day') {
+    d.setHours(0, 0, 0, 0);
+    return d;
+  } else if (kind === 'week') {
+    d.setHours(0, 0, 0, 0);
+    // Monday-based week
+    const dow = d.getDay(); // 0=Sun
+    const diff = (dow === 0) ? -6 : 1 - dow;
+    d.setDate(d.getDate() + diff);
+    return d;
+  } else { // month
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+}
+
+function addBuckets(date, kind, n) {
+  const d = new Date(date);
+  if (kind === 'day') {
+    d.setDate(d.getDate() + n);
+  } else if (kind === 'week') {
+    d.setDate(d.getDate() + n * 7);
+  } else {
+    d.setMonth(d.getMonth() + n);
+  }
+  return d;
+}
+
+function bucketCount(kind) {
+  return kind === 'day' ? 7 : 5;
+}
+
+// Current window: buckets[0] is oldest, buckets[n-1] is newest
+function getWindowBuckets() {
+  const n = bucketCount(state.kind);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayBucket = bucketStart(today, state.kind);
+  // scrollOffset <= 0: 0 = present, -1 = one step back, etc.
+  // rightmost visible bucket is todayBucket + scrollOffset
+  const rightmostBucket = addBuckets(todayBucket, state.kind, state.scrollOffset);
+  const buckets = [];
+  for (let i = n - 1; i >= 0; i--) {
+    buckets.unshift(addBuckets(rightmostBucket, state.kind, -i));
+  }
+  return buckets;
+}
+
+// ─── Aggregation ─────────────────────────────────────────────────────────────
+function getFilteredData() {
+  return rawData.filter(e => {
+    if (state.source && e.source !== state.source) return false;
+    if (state.project && e.project !== state.project) return false;
+    if (state.model && e.model !== state.model) return false;
+    return true;
+  });
+}
+
+function aggregateBuckets(filtered, buckets) {
+  const bucketMap = {};
+  for (const b of buckets) {
+    const key = isoDate(b);
+    bucketMap[key] = {
+      date: b,
+      byProject: {},
+      totalCost: 0,
+      totalEvents: 0,
+      cacheRead: 0,
+      cacheTotal: 0,
+      credits: 0
+    };
+  }
+
+  for (const e of filtered) {
+    const bStart = bucketStart(e.ts, state.kind);
+    const key = isoDate(bStart);
+    if (!bucketMap[key]) continue;
+    const bkt = bucketMap[key];
+
+    if (!bkt.byProject[e.project]) {
+      bkt.byProject[e.project] = { cost: 0, events: 0, credits: 0, colorIdx: PROJECTS.indexOf(e.project) };
+    }
+    bkt.byProject[e.project].cost    += e.cost_usd;
+    bkt.byProject[e.project].events  += e.eventCount;
+    bkt.byProject[e.project].credits += (e.credits || 0);
+    bkt.totalCost   += e.cost_usd;
+    bkt.totalEvents += e.eventCount;
+    bkt.cacheRead   += e.cacheRead;
+    bkt.cacheTotal  += e.cacheRead + e.cacheWrite + e.inputTok;
+    if (e.credits != null) bkt.credits += e.credits;
+  }
+
+  return buckets.map(b => bucketMap[isoDate(b)]);
+}
+
+// ─── Scroll / clamp ───────────────────────────────────────────────────────────
+function minScrollOffset() {
+  // Don't go so far back that all data is out of view
+  if (rawData.length === 0) return 0;
+  const oldest = rawData[0].ts;
+  const todayBkt = bucketStart(new Date(), state.kind);
+  const oldestBkt = bucketStart(oldest, state.kind);
+
+  // difference in bucket units
+  let diff = 0;
+  const n = bucketCount(state.kind);
+  let cur = new Date(todayBkt);
+  while (cur > oldestBkt) {
+    cur = addBuckets(cur, state.kind, -1);
+    diff--;
+  }
+  // keep at least one bucket visible
+  return diff + n - 1;
+}
+
+function clampScrollOffset(v) {
+  const mn = minScrollOffset();
+  return Math.max(mn, Math.min(0, v));
+}
+
+// ─── Format helpers ───────────────────────────────────────────────────────────
+function fmtCost(v) { return '$' + v.toFixed(4); }
+function fmtCostPerEvent(v) { return '$' + v.toFixed(4) + '/event'; }
+function fmtPct(v) { return v.toFixed(1) + '% cache hit'; }
+function fmtEvents(n) { return n + ' event' + (n === 1 ? '' : 's'); }
+
+function bucketLabel(bucket, kind) {
+  const d = bucket.date;
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (kind === 'day') {
+    if (d.getTime() === today.getTime()) return { main: 'Today', today: true };
+    const wd = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const dy = d.toLocaleDateString('en-US', { day: 'numeric' });
+    return { main: wd, sub: dy };
+  } else if (kind === 'week') {
+    const mo = d.toLocaleDateString('en-US', { month: 'short' });
+    const dy = d.toLocaleDateString('en-US', { day: 'numeric' });
+    return { main: mo, sub: dy };
+  } else {
+    return { main: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) };
+  }
+}
+
+function navBarLabel(buckets, kind) {
+  if (buckets.length === 0) return '';
+  const first = buckets[0].date;
+  const last  = buckets[buckets.length - 1].date;
+  const fmtOpts = kind === 'month'
+    ? { month: 'short', year: 'numeric' }
+    : { month: 'short', day: 'numeric' };
+  const s = first.toLocaleDateString('en-US', fmtOpts);
+  const e = last.toLocaleDateString('en-US', fmtOpts);
+  return s + ' – ' + e;
+}
+
+// ─── SVG chart ────────────────────────────────────────────────────────────────
+const SVG_W = 280, SVG_H = 140;
+const MARGIN = { left: 30, right: 4, top: 8, bottom: 6 };
+const PLOT_W = SVG_W - MARGIN.left - MARGIN.right;
+const PLOT_H = SVG_H - MARGIN.top - MARGIN.bottom;
+
+function renderChart(buckets) {
+  const svg = document.getElementById('chartSvg');
+  const n = buckets.length;
+  const barW = PLOT_W / n;
+  const gap  = Math.max(1, barW * 0.12);
+
+  let svgContent = '';
+
+  // Grid lines
+  const gridLines = 4;
+  for (let i = 0; i <= gridLines; i++) {
+    const y = MARGIN.top + (PLOT_H * i / gridLines);
+    svgContent += `<line x1="${MARGIN.left}" y1="${y.toFixed(1)}" x2="${SVG_W - MARGIN.right}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>`;
+  }
+
+  const mode = state.chartMode;
+
+  if (mode === 'cost' || mode === 'eventCount' || mode === 'credits') {
+    // Stacked bar chart
+    const vals = buckets.map(b =>
+      mode === 'cost' ? b.totalCost : mode === 'eventCount' ? b.totalEvents : b.credits
+    );
+    const maxVal = Math.max(...vals, 0.001);
+
+    // Y-axis labels
+    const yLabels = [0, maxVal * 0.5, maxVal];
+    for (const v of yLabels) {
+      const y = MARGIN.top + PLOT_H - (v / maxVal) * PLOT_H;
+      let label;
+      if (mode === 'cost') label = '$' + v.toFixed(0);
+      else if (mode === 'eventCount') label = Math.round(v).toString();
+      else label = Math.round(v).toString(); // credits: integer
+      svgContent += `<text x="${MARGIN.left - 2}" y="${(y + 3).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.5)" font-size="8" font-family="-apple-system,BlinkMacSystemFont,sans-serif">${label}</text>`;
+    }
+
+    // Bars
+    for (let i = 0; i < n; i++) {
+      const bkt = buckets[i];
+      const bktKey = isoDate(bkt.date);
+      const isSelected = state.selectedBucket === bktKey;
+      const hasSelection = state.selectedBucket !== null;
+      const opacity = hasSelection && !isSelected ? 0.3 : 1.0;
+      const x0 = MARGIN.left + i * barW + gap;
+      const bw = barW - gap * 2;
+
+      let stackY = MARGIN.top + PLOT_H;
+      const projects = Object.entries(bkt.byProject).sort((a,b) => a[0].localeCompare(b[0]));
+      for (const [proj, data] of projects) {
+        let pVal;
+        if (mode === 'cost') pVal = data.cost;
+        else if (mode === 'eventCount') pVal = data.events;
+        else pVal = data.credits || 0; // credits per project
+        const h = Math.max(1, (pVal / maxVal) * PLOT_H);
+        stackY -= h;
+        const ci = data.colorIdx >= 0 ? data.colorIdx : 0;
+        const color = PROJECT_COLORS[ci % PROJECT_COLORS.length];
+        svgContent += `<rect x="${x0.toFixed(1)}" y="${stackY.toFixed(1)}" width="${Math.max(0,bw).toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" opacity="${opacity}" rx="2" data-bucket="${bktKey}" class="chart-bar" style="cursor:pointer"/>`;
+      }
+      // Invisible hit target for full bar height
+      svgContent += `<rect x="${x0.toFixed(1)}" y="${MARGIN.top}" width="${Math.max(0,bw).toFixed(1)}" height="${PLOT_H}" fill="transparent" data-bucket="${bktKey}" class="chart-bar" style="cursor:pointer"/>`;
+    }
+
+  } else if (mode === 'efficiency' || mode === 'cacheHitRate') {
+    // Line + circles
+    const points = buckets.map((b, i) => {
+      let v;
+      if (mode === 'efficiency') {
+        v = b.totalEvents > 0 ? b.totalCost / b.totalEvents : 0;
+      } else {
+        v = b.cacheTotal > 0 ? (b.cacheRead / b.cacheTotal) * 100 : 0;
+      }
+      return { i, v, bkt: b };
+    }).filter(p => p.v > 0);
+
+    const yMin = mode === 'cacheHitRate' ? 0 : 0;
+    const yMax = mode === 'cacheHitRate' ? 100 : Math.max(...points.map(p => p.v), 0.001) * 1.2;
+
+    // Y-axis labels
+    const yLabels = mode === 'cacheHitRate' ? [0, 50, 100] : [0, yMax * 0.5, yMax];
+    for (const v of yLabels) {
+      const y = MARGIN.top + PLOT_H - ((v - yMin) / (yMax - yMin)) * PLOT_H;
+      const label = mode === 'cacheHitRate' ? Math.round(v) + '%' : '$' + v.toFixed(4);
+      svgContent += `<text x="${MARGIN.left - 2}" y="${(y + 3).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.5)" font-size="8" font-family="-apple-system,BlinkMacSystemFont,sans-serif">${label}</text>`;
+    }
+
+    const lineColor = mode === 'cacheHitRate' ? 'rgba(100,210,255,0.85)' : 'rgba(52,199,89,0.85)';
+    const dotColor  = mode === 'cacheHitRate' ? '#64D2FF' : '#34c759';
+
+    if (points.length > 1) {
+      const coords = points.map(p => {
+        const cx = MARGIN.left + (p.i + 0.5) * barW;
+        const cy = MARGIN.top + PLOT_H - ((p.v - yMin) / (yMax - yMin)) * PLOT_H;
+        return `${cx.toFixed(1)},${cy.toFixed(1)}`;
+      });
+      svgContent += `<polyline points="${coords.join(' ')}" fill="none" stroke="${lineColor}" stroke-width="1.5"/>`;
+    }
+
+    for (const p of points) {
+      const cx = MARGIN.left + (p.i + 0.5) * barW;
+      const cy = MARGIN.top + PLOT_H - ((p.v - yMin) / (yMax - yMin)) * PLOT_H;
+      const bktKey = isoDate(p.bkt.date);
+      const isSelected = state.selectedBucket === bktKey;
+      const hasSelection = state.selectedBucket !== null;
+      const opacity = hasSelection && !isSelected ? 0.3 : 1.0;
+      const r = isSelected ? 5 : 3.5;
+      svgContent += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${dotColor}" opacity="${opacity}" data-bucket="${bktKey}" class="chart-bar" style="cursor:pointer"/>`;
+      // Invisible hit area
+      svgContent += `<rect x="${(MARGIN.left + p.i * barW).toFixed(1)}" y="${MARGIN.top}" width="${barW.toFixed(1)}" height="${PLOT_H}" fill="transparent" data-bucket="${bktKey}" class="chart-bar" style="cursor:pointer"/>`;
+    }
+  }
+
+  svg.innerHTML = svgContent;
+
+  // Wire bar clicks
+  svg.querySelectorAll('.chart-bar').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const key = el.getAttribute('data-bucket');
+      state.selectedBucket = (state.selectedBucket === key) ? null : key;
+      render();
+    });
+  });
+}
+
+// ─── X-axis labels ────────────────────────────────────────────────────────────
+function renderXAxis(buckets) {
+  const container = document.getElementById('xAxisLabels');
+  container.innerHTML = '';
+  for (const bkt of buckets) {
+    const lbl = bucketLabel(bkt, state.kind);
+    const div = document.createElement('div');
+    div.className = 'x-label';
+    div.setAttribute('data-bucket', isoDate(bkt.date));
+    div.style.cursor = 'pointer';
+    if (lbl.today) {
+      div.innerHTML = `<span class="x-label-today">Today</span>`;
+    } else if (lbl.sub) {
+      div.innerHTML = `<span class="x-label-day">${lbl.main}</span><span class="x-label-num">${lbl.sub}</span>`;
+    } else {
+      div.innerHTML = `<span class="x-label-day">${lbl.main}</span>`;
+    }
+    div.addEventListener('click', e => {
+      e.stopPropagation();
+      const key = isoDate(bkt.date);
+      state.selectedBucket = (state.selectedBucket === key) ? null : key;
+      render();
+    });
+    container.appendChild(div);
+  }
+}
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+function renderFooter(buckets, filtered) {
+  const fp = document.getElementById('footerPrimary');
+  const fs = document.getElementById('footerSecondary');
+  const fc = document.getElementById('footerCredits');
+
+  // Determine which bucket is selected (or total)
+  let selBkt = null;
+  if (state.selectedBucket) {
+    selBkt = buckets.find(b => isoDate(b.date) === state.selectedBucket);
+  }
+
+  const mode = state.chartMode;
+
+  if (mode === 'cost') {
+    const cost   = selBkt ? selBkt.totalCost   : buckets.reduce((s,b) => s + b.totalCost, 0);
+    const events = selBkt ? selBkt.totalEvents  : buckets.reduce((s,b) => s + b.totalEvents, 0);
+    fp.textContent = fmtCost(cost);
+    fp.style.color = '#fff';
+    fs.textContent = fmtEvents(events);
+
+    // Codex credits overlay (cost mode only)
+    if (state.source === 'codex') {
+      const cr = selBkt ? selBkt.credits : buckets.reduce((s,b) => s + b.credits, 0);
+      fc.textContent = cr.toFixed(2) + ' cr';
+      fc.style.display = 'block';
+    } else {
+      fc.style.display = 'none';
+    }
+
+  } else if (mode === 'credits') {
+    const cr     = selBkt ? selBkt.credits     : buckets.reduce((s,b) => s + b.credits, 0);
+    const events = selBkt ? selBkt.totalEvents : buckets.reduce((s,b) => s + b.totalEvents, 0);
+    fp.textContent = cr.toFixed(2) + ' cr';
+    fp.style.color = '#FFD60A';
+    fs.textContent = fmtEvents(events);
+    fc.style.display = 'none'; // primary IS credits; no double overlay
+
+  } else if (mode === 'efficiency') {
+    const cost   = selBkt ? selBkt.totalCost   : buckets.reduce((s,b) => s + b.totalCost, 0);
+    const events = selBkt ? selBkt.totalEvents  : buckets.reduce((s,b) => s + b.totalEvents, 0);
+    const eff = events > 0 ? cost / events : 0;
+    fp.textContent = fmtCostPerEvent(eff);
+    fp.style.color = '#34c759';
+    fs.textContent = '';
+    fc.style.display = 'none';
+
+  } else if (mode === 'eventCount') {
+    const events = selBkt ? selBkt.totalEvents  : buckets.reduce((s,b) => s + b.totalEvents, 0);
+    fp.textContent = String(events);
+    fp.style.color = '#fff';
+    fs.textContent = fmtEvents(events);
+    fc.style.display = 'none';
+
+  } else if (mode === 'cacheHitRate') {
+    let read, total;
+    if (selBkt) {
+      read = selBkt.cacheRead; total = selBkt.cacheTotal;
+    } else {
+      read  = buckets.reduce((s,b) => s + b.cacheRead, 0);
+      total = buckets.reduce((s,b) => s + b.cacheTotal, 0);
+    }
+    const pct = total > 0 ? (read / total) * 100 : 0;
+    fp.textContent = fmtPct(pct);
+    // Mirror BarChartView.swift:306 — >=70% green, >=40% yellow, else red
+    fp.style.color = pct >= 70 ? '#34c759' : pct >= 40 ? '#ffd60a' : '#ff453a';
+    fs.textContent = '';
+    fc.style.display = 'none';
+  }
+}
+
+// ─── Credits bar ──────────────────────────────────────────────────────────────
+function weeklyCodexCredits() {
+  const today = new Date(); today.setHours(23, 59, 59, 999);
+  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); sevenDaysAgo.setHours(0,0,0,0);
+  return rawData
+    .filter(e => e.source === 'codex' && e.ts >= sevenDaysAgo && e.ts <= today)
+    .reduce((s, e) => s + (e.credits || 0), 0);
+}
+
+function renderCreditsBar() {
+  const wrap = document.getElementById('creditsBar');
+  if (state.source === 'codex') {
+    wrap.classList.add('visible');
+    const cr = weeklyCodexCredits();
+    const pct = cr / CREDITS_LIMIT;
+    document.getElementById('creditsFill').style.width = Math.min(pct * 100, 100) + '%';
+    // yellow = 70-89%, green < 70%, red >= 90%
+    const col = pct >= 0.9 ? '#ff453a' : pct >= 0.7 ? '#ffd60a' : '#34c759';
+    document.getElementById('creditsFill').style.background = col;
+    document.getElementById('creditsValue').style.color = col;
+    document.getElementById('creditsValue').textContent = cr.toFixed(1) + ' / ' + CREDITS_LIMIT;
+  } else {
+    wrap.classList.remove('visible');
+  }
+}
+
+// ─── Source pills ─────────────────────────────────────────────────────────────
+function renderSourcePills() {
+  document.querySelectorAll('#sourcePills .pill').forEach(btn => {
+    const v = btn.getAttribute('data-source');
+    const isActive = (v === 'null') ? state.source === null : state.source === v;
+    btn.classList.toggle('active', isActive);
+  });
+}
+
+// ─── Range pills ─────────────────────────────────────────────────────────────
+function renderRangePills() {
+  document.querySelectorAll('#rangePills .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-kind') === state.kind);
+  });
+}
+
+// ─── Chart mode button ────────────────────────────────────────────────────────
+function renderChartModeBtn() {
+  const btn = document.getElementById('chartModeBtn');
+  btn.classList.toggle('active-mode', state.chartMode !== 'cost');
+  ['cost','credits','efficiency','eventCount','cacheHitRate'].forEach(m => {
+    const el = document.getElementById('chk-' + m);
+    if (el) el.textContent = (m === state.chartMode) ? '✓' : '';
+  });
+  // Credits menu item only visible when source === 'codex'
+  const creditsItem = document.getElementById('creditsMenuItem');
+  if (creditsItem) creditsItem.style.display = state.source === 'codex' ? '' : 'none';
+
+  const pop = document.getElementById('chartModePopover');
+  pop.classList.toggle('open', state.chartModeMenuOpen);
+}
+
+// ─── Filter button + popover ──────────────────────────────────────────────────
+function renderFilterMenu(filtered) {
+  const filterActive = state.project !== null || state.model !== null;
+  const badge = document.getElementById('filterBadge');
+  const btn   = document.getElementById('filterBtn');
+  badge.classList.toggle('visible', filterActive);
+  btn.classList.toggle('filter-active', filterActive);
+
+  // Build project list from filtered by source only
+  const projSet = new Set(rawData.filter(e => !state.source || e.source === state.source).map(e => e.project));
+  const projects = Array.from(projSet).sort();
+  const modelSet = new Set(rawData.filter(e => !state.source || e.source === state.source).map(e => e.model));
+  const models = Array.from(modelSet).sort();
+
+  const pContainer = document.getElementById('filterProjectItems');
+  pContainer.innerHTML = '';
+  // All projects
+  const allPBtn = document.createElement('button');
+  allPBtn.className = 'popover-item' + (state.project === null ? ' active' : '');
+  allPBtn.innerHTML = `<span class="popover-checkmark">${state.project === null ? '✓' : ''}</span>All projects`;
+  allPBtn.onclick = () => { state.project = null; state.selectedBucket = null; closeMenus(); render(); };
+  pContainer.appendChild(allPBtn);
+  for (const proj of projects) {
+    const btn = document.createElement('button');
+    btn.className = 'popover-item' + (state.project === proj ? ' active' : '');
+    btn.innerHTML = `<span class="popover-checkmark">${state.project === proj ? '✓' : ''}</span>${proj}`;
+    btn.onclick = (() => {
+      const p = proj;
+      return () => { state.project = p; state.selectedBucket = null; closeMenus(); render(); };
+    })();
+    pContainer.appendChild(btn);
+  }
+
+  const mContainer = document.getElementById('filterModelItems');
+  mContainer.innerHTML = '';
+  const allMBtn = document.createElement('button');
+  allMBtn.className = 'popover-item' + (state.model === null ? ' active' : '');
+  allMBtn.innerHTML = `<span class="popover-checkmark">${state.model === null ? '✓' : ''}</span>All models`;
+  allMBtn.onclick = () => { state.model = null; state.selectedBucket = null; closeMenus(); render(); };
+  mContainer.appendChild(allMBtn);
+  for (const m of models) {
+    const btn = document.createElement('button');
+    btn.className = 'popover-item' + (state.model === m ? ' active' : '');
+    btn.innerHTML = `<span class="popover-checkmark">${state.model === m ? '✓' : ''}</span>${m}`;
+    btn.onclick = (() => {
+      const mo = m;
+      return () => { state.model = mo; state.selectedBucket = null; closeMenus(); render(); };
+    })();
+    mContainer.appendChild(btn);
+  }
+
+  // Reset button visibility
+  document.getElementById('resetFiltersBtn').style.display = filterActive ? '' : 'none';
+  document.getElementById('filterResetDivider').style.display = filterActive ? '' : 'none';
+
+  document.getElementById('filterPopover').classList.toggle('open', state.filterMenuOpen);
+}
+
+// ─── Nav bar ─────────────────────────────────────────────────────────────────
+function renderNavBar(buckets) {
+  document.getElementById('navDateLabel').textContent = navBarLabel(buckets, state.kind);
+  const nowBtn = document.getElementById('nowBtn');
+  nowBtn.style.display = state.scrollOffset !== 0 ? '' : 'none';
+  document.getElementById('chevronLeft').disabled  = state.scrollOffset <= minScrollOffset();
+  document.getElementById('chevronRight').disabled = state.scrollOffset >= 0;
+}
+
+// ─── Menu bar cost ────────────────────────────────────────────────────────────
+function renderMenuBarCost() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todaySpend = rawData
+    .filter(e => e.ts >= today)
+    .reduce((s, e) => s + e.cost_usd, 0);
+  const el = document.getElementById('menubarCost');
+  if (el) el.textContent = '$' + todaySpend.toFixed(2);
+}
+
+// ─── Master render ────────────────────────────────────────────────────────────
+function render() {
+  const filtered = getFilteredData();
+  const buckets  = getWindowBuckets();
+  const agg      = aggregateBuckets(filtered, buckets);
+
+  renderMenuBarCost();
+  renderSourcePills();
+  renderRangePills();
+  renderCreditsBar();
+  renderNavBar(agg);
+  renderChart(agg);
+  renderXAxis(agg);
+  renderFooter(agg, filtered);
+  renderChartModeBtn();
+  renderFilterMenu(filtered);
+}
+
+// ─── Interaction handlers ─────────────────────────────────────────────────────
+function closeMenus() {
+  state.chartModeMenuOpen = false;
+  state.filterMenuOpen = false;
+}
+
+function toggleChartModeMenu(e) {
+  e.stopPropagation();
+  const wasOpen = state.chartModeMenuOpen;
+  closeMenus();
+  state.chartModeMenuOpen = !wasOpen;
+  render();
+}
+
+function toggleFilterMenu(e) {
+  e.stopPropagation();
+  const wasOpen = state.filterMenuOpen;
+  closeMenus();
+  state.filterMenuOpen = !wasOpen;
+  render();
+}
+
+function setChartMode(mode) {
+  state.chartMode = mode;
+  state.selectedBucket = null;
+  closeMenus();
+  render();
+}
+
+function shiftLeft() {
+  state.scrollOffset = clampScrollOffset(state.scrollOffset - 1);
+  state.selectedBucket = null;
+  render();
+}
+
+function shiftRight() {
+  state.scrollOffset = clampScrollOffset(state.scrollOffset + 1);
+  state.selectedBucket = null;
+  render();
+}
+
+function goToNow() {
+  state.scrollOffset = 0;
+  state.selectedBucket = null;
+  render();
+}
+
+function resetFilters() {
+  state.project = null;
+  state.model   = null;
+  state.selectedBucket = null;
+  closeMenus();
+  render();
+}
+
+function reloadData() {
+  state.seed = Math.floor(Math.random() * 99999);
+  generateData(state.seed);
+  state.selectedBucket = null;
+  closeMenus();
+  render();
+}
+
+function openInWindow() {
+  closeMenus();
+  render();
+  // visual only
+}
+
+// Source pill clicks
+document.querySelectorAll('#sourcePills .pill').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const v = btn.getAttribute('data-source');
+    const newSource = (v === 'null') ? null : v;
+    // Deactivate model filter if no longer available
+    if (newSource !== null && state.model) {
+      const available = new Set(rawData.filter(e => e.source === newSource).map(e => e.model));
+      if (!available.has(state.model)) state.model = null;
+    }
+    state.source = newSource;
+    // Auto-reset credits mode when leaving codex (mirrors ContentView.swift onChange)
+    if (state.chartMode === 'credits' && newSource !== 'codex') {
+      state.chartMode = 'cost';
+    }
+    state.selectedBucket = null;
+    render();
+  });
+});
+
+// Range pill clicks
+document.querySelectorAll('#rangePills .pill').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    state.kind = btn.getAttribute('data-kind');
+    state.scrollOffset = 0;
+    state.selectedBucket = null;
+    render();
+  });
+});
+
+// Close menus when clicking outside
+document.addEventListener('click', () => {
+  if (state.chartModeMenuOpen || state.filterMenuOpen) {
+    closeMenus();
+    render();
+  }
+});
+
+// Close tooltip
+let tooltipTimer;
+function showCloseTooltip() {
+  const tip = document.getElementById('closeTooltip');
+  tip.classList.add('visible');
+  clearTimeout(tooltipTimer);
+  tooltipTimer = setTimeout(() => tip.classList.remove('visible'), 2000);
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+generateData(state.seed);
+render();
+</script>
+</body>
+</html>
