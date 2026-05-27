@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan: Codex Credit Cycle Tracker</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f8fa;
+      --fg: #1f2328;
+      --muted: #59636e;
+      --card: #ffffff;
+      --border: #d8dee4;
+      --accent: #0969da;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --fg: #e6edf3;
+        --muted: #8b949e;
+        --card: #161b22;
+        --border: #30363d;
+        --accent: #58a6ff;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+
+    header {
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(30px, 5vw, 44px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .meta {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 22px 24px;
+      margin: 16px 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+      background: color-mix(in srgb, var(--border) 38%, transparent);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+
+    a {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Plan: Codex Credit Cycle Tracker</h1>
+      <p class="meta">Issue source: <a href="https://github.com/lamphamTL/ai-plugins/issues/9">lamphamTL/ai-plugins#9</a></p>
+    </header>
+
+    <section>
+      <h2>Summary</h2>
+      <p>Fix issue #9 by changing only Codex <code>Weekly credits</code> tracker from ISO Monday-Sunday week to Codex usage-cycle week: 7-day cycle starts at first Codex usage after previous cycle expires. Week charts stay calendar-based.</p>
+    </section>
+
+    <section>
+      <h2>Key Changes</h2>
+      <ul>
+        <li>Add small pure Swift helper, likely <code>CodexCreditCycle</code>, used by <code>UsageStore.buildDerived</code>.</li>
+        <li>Replace <code>weeklyCodexCredits</code> ISO-week sum with current active Codex credit cycle.</li>
+        <li>Filter <code>source == "codex"</code> entries with non-nil <code>credits</code>, sorted by <code>ts</code>.</li>
+        <li>First cycle starts at first Codex usage.</li>
+        <li>If entry timestamp is <code>&gt;= cycleStart + 7 days</code>, close old cycle and start new cycle at that entry timestamp.</li>
+        <li>Current tracker sum equals credits from latest cycle only, if <code>Date()</code> is before <code>cycleStart + 7 days</code>.</li>
+        <li>If latest known cycle already expired and no later usage exists, show <code>0 / 1000</code>; next Codex use starts next cycle.</li>
+        <li>Expose richer state from store: used credits plus optional <code>cycleStart</code>/<code>cycleEnd</code>, so UI can show current cycle dates when active.</li>
+        <li>Keep existing 1000 credit limit and color thresholds unchanged.</li>
+        <li>Update <code>token-usage-app/README.md</code> to say Codex credit tracker uses first-usage-after-expiry cycles, not Monday-Sunday weeks.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Public Interfaces / Types</h2>
+      <ul>
+        <li>Replace or supplement <code>UsageStore.weeklyCodexCredits: Double</code> with <code>codexCreditCycleUsed: Double</code>.</li>
+        <li>Add optional <code>codexCreditCycleStart: Date?</code> and <code>codexCreditCycleEnd: Date?</code>.</li>
+        <li>UI label can remain <code>Weekly credits</code>; secondary text may show active cycle range when available, else <code>Starts on next Codex use</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Test Plan</h2>
+      <ul>
+        <li>Add focused Swift unit-style test target or lightweight script test for pure helper.</li>
+        <li>Cover no Codex entries: 0 credits, no active cycle.</li>
+        <li>Cover entries within 7 days of first use: summed together.</li>
+        <li>Cover entry exactly at <code>start + 7 days</code>: new cycle.</li>
+        <li>Cover gap after expired cycle with no usage: 0 active credits.</li>
+        <li>Cover Sunday usage, then Wednesday usage after expired cycle: Wednesday becomes cycle start.</li>
+        <li>Cover Claude entries ignored.</li>
+        <li>Run <code>cd token-usage-app &amp;&amp; ./build.sh</code> to verify app still compiles.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Assumptions</h2>
+      <ul>
+        <li>Scope is tracker only; Day/Week/Month chart bucketing remains calendar-based.</li>
+        <li>Cycle length is exactly 7 * 24 hours from first usage timestamp, not local midnight boundaries.</li>
+        <li>Existing historical log format stays unchanged; no migration needed.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
