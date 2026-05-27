@@ -103,3 +103,22 @@ claude plugins install claude-assistant@ai-plugins
 ```bash
 codex plugin marketplace upgrade ai-plugins
 ```
+
+## HTML snapshot
+
+`token-usage-app/snapshot.html` is a hand-maintained interactive HTML mirror of the
+SwiftUI panel. Whenever you change UI under `token-usage-app/Sources/TokenUsageApp/Views/`
+(layout, colours, controls, chart modes, interactions, footer formatting), update
+`snapshot.html` in the same change to keep them in sync.
+
+Elements to keep aligned:
+- Panel layout: header row, source picker, weekly credits bar (Codex only), nav bar,
+  chart, footer.
+- Source picker options (currently All / Claude / Codex).
+- Time range tabs (Day / Week / Month) and bar count behaviour.
+- Chart modes (Spend / Cost per event / Event count / Cache hit) and footer formatting
+  per mode.
+- Filter menu structure (Project, Model, Reset, Reload, Open in window).
+- Colour palette + glass background + corner radius.
+
+Data is synthetic and ranges may stay as-is unless the real-app ranges shift dramatically.
