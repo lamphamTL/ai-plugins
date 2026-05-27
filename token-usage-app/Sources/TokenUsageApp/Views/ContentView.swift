@@ -46,10 +46,16 @@ struct ContentView: View {
 
     private let sources = [("All", String?.none), ("Claude", "claude"), ("Codex", "codex")]
 
+    private var availableChartModes: [ChartMode] {
+        ChartMode.allCases.filter { mode in
+            mode != .credits || selectedSource == "codex"
+        }
+    }
+
     @ViewBuilder
     private var chartModeMenu: some View {
         Menu {
-            ForEach(ChartMode.allCases) { mode in
+            ForEach(availableChartModes) { mode in
                 Button {
                     chartMode = mode
                 } label: {
@@ -381,6 +387,9 @@ struct ContentView: View {
             if let m = selectedModel, !availableModels.contains(m) {
                 selectedModel = nil
             }
+            if chartMode == .credits && selectedSource != "codex" {
+                chartMode = .cost
+            }
             chartData = computeChartData()
         }
         .onChange(of: selectedProject) { _, _ in chartData = computeChartData() }
@@ -502,7 +511,7 @@ struct ContentView: View {
         let component = selectedKind.bucketComponent
         let multiSource = Set(visible.map(\.source)).count > 1
 
-        var grouped: [Date: [String: (cost: Double, tokens: Int, count: Int, source: String)]] = [:]
+        var grouped: [Date: [String: (cost: Double, credits: Double, tokens: Int, count: Int, source: String)]] = [:]
         var bucketCounts: [Date: Int] = [:]
         var bucketCredits: [Date: Double] = [:]
         var bucketCacheRead:  [Date: Int] = [:]
@@ -513,9 +522,10 @@ struct ContentView: View {
             let bucket = interval.start
             let proj = entry.projectDisplayName
             let key = multiSource ? "\(proj) (\(entry.source))" : proj
-            let prev = grouped[bucket]?[key] ?? (cost: 0, tokens: 0, count: 0, source: entry.source)
+            let prev = grouped[bucket]?[key] ?? (cost: 0, credits: 0, tokens: 0, count: 0, source: entry.source)
             grouped[bucket, default: [:]][key] = (
                 cost:   prev.cost + entry.cost_usd,
+                credits: prev.credits + (entry.credits ?? 0),
                 tokens: prev.tokens + entry.tokens.total,
                 count:  prev.count + 1,
                 source: entry.source
@@ -531,7 +541,7 @@ struct ContentView: View {
         for (date, projects) in grouped {
             for (key, agg) in projects {
                 points.append(ChartPoint(bucketDate: date, project: key, source: agg.source,
-                                         cost: agg.cost, totalTokens: agg.tokens,
+                                         cost: agg.cost, credits: agg.credits, totalTokens: agg.tokens,
                                          eventCount: agg.count))
             }
         }

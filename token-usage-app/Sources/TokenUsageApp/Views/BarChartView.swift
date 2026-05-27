@@ -3,6 +3,7 @@ import Charts
 
 enum ChartMode: String, CaseIterable, Identifiable {
     case cost
+    case credits
     case efficiency
     case eventCount
     case cacheHitRate
@@ -12,6 +13,7 @@ enum ChartMode: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .cost:         return "Spend"
+        case .credits:      return "Credits"
         case .efficiency:   return "Cost per event"
         case .eventCount:   return "Event count"
         case .cacheHitRate: return "Cache hit"
@@ -21,6 +23,7 @@ enum ChartMode: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .cost:         return "dollarsign"
+        case .credits:      return "creditcard"
         case .efficiency:   return "chart.line.uptrend.xyaxis"
         case .eventCount:   return "number"
         case .cacheHitRate: return "memorychip"
@@ -34,6 +37,7 @@ struct ChartPoint: Identifiable {
     let project: String
     let source: String
     let cost: Double
+    let credits: Double
     let totalTokens: Int
     let eventCount: Int
 }
@@ -116,7 +120,7 @@ struct BarChartView: View {
         return bucketCosts.compactMap { date, cost in
             guard let count = data.bucketCounts[date], count > 0 else { return nil }
             return ChartPoint(bucketDate: date, project: "avg", source: "",
-                              cost: cost / Double(count), totalTokens: 0, eventCount: count)
+                              cost: cost / Double(count), credits: 0, totalTokens: 0, eventCount: count)
         }.sorted { $0.bucketDate < $1.bucketDate }
     }
 
@@ -126,7 +130,7 @@ struct BarChartView: View {
             let read = data.bucketCacheRead[date] ?? 0
             let pct  = Double(read) / Double(total) * 100   // 0…100
             return ChartPoint(bucketDate: date, project: "rate", source: "",
-                              cost: pct, totalTokens: 0, eventCount: 0)
+                              cost: pct, credits: 0, totalTokens: 0, eventCount: 0)
         }.sorted { $0.bucketDate < $1.bucketDate }
     }
 
@@ -143,6 +147,12 @@ struct BarChartView: View {
         guard let bucket = selectedBucket else { return nil }
         let matching = data.points.filter { $0.bucketDate == bucket }
         return matching.isEmpty ? nil : matching.reduce(0) { $0 + $1.cost }
+    }
+
+    private var selectedBucketCredits: Double? {
+        guard let bucket = selectedBucket else { return nil }
+        let matching = data.points.filter { $0.bucketDate == bucket }
+        return matching.isEmpty ? nil : matching.reduce(0) { $0 + $1.credits }
     }
 
     private var selectedBucketEfficiency: Double? {
@@ -236,6 +246,10 @@ struct BarChartView: View {
             let bucketTotal = activePoints.filter { $0.bucketDate == bucketStart }.reduce(0.0) { $0 + $1.cost }
             guard bucketTotal > 0, clickedValue <= bucketTotal else { return nil }
             return bucketStart
+        case .credits:
+            let bucketTotal = activePoints.filter { $0.bucketDate == bucketStart }.reduce(0.0) { $0 + $1.credits }
+            guard bucketTotal > 0, clickedValue <= bucketTotal else { return nil }
+            return bucketStart
         case .eventCount:
             let bucketTotal = data.bucketCounts[bucketStart] ?? 0
             guard bucketTotal > 0, clickedValue <= Double(bucketTotal) else { return nil }
@@ -250,6 +264,8 @@ struct BarChartView: View {
                 efficiencyChart
             case .cost:
                 costChart
+            case .credits:
+                creditsChart
             case .eventCount:
                 eventCountChart
             case .cacheHitRate:
@@ -289,6 +305,11 @@ struct BarChartView: View {
             Text(String(format: "$%.4f", displayCost))
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(.primary)
+        case .credits:
+            let displayCredits = selectedBucketCredits ?? data.totalCredits
+            Text(String(format: "%.2f cr", displayCredits))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.yellow)
         case .efficiency:
             let displayAvg = selectedBucketEfficiency ?? overallEfficiency
             Text(String(format: "$%.4f/event", displayAvg))
@@ -327,6 +348,32 @@ struct BarChartView: View {
         .chartForegroundStyleScale(domain: allProjects, range: allProjects.map { colorFor($0) })
         .chartXAxis { categoricalXAxis }
         .chartYAxis { costYAxis }
+        .chartXScale(domain: commonXScale)
+        .chartLegend(.hidden)
+        .frame(minHeight: chartMinHeight, maxHeight: chartMaxHeight)
+        .animation(nil, value: kind)
+        .animation(nil, value: scrollDate)
+        .animation(nil, value: barCount)
+        .chartOverlay { proxy in tapOverlay(proxy: proxy) }
+        .onChange(of: scrollDate) { _, _ in selectedBucket = nil }
+        .onChange(of: kind)       { _, _ in selectedBucket = nil }
+        .onChange(of: chartMode)  { _, _ in selectedBucket = nil }
+    }
+
+    @ViewBuilder
+    private var creditsChart: some View {
+        Chart(data.points) { point in
+            BarMark(
+                x: .value("Time", point.bucketDate, unit: kind.bucketComponent),
+                y: .value("Credits", point.credits)
+            )
+            .foregroundStyle(by: .value("Project", point.project))
+            .cornerRadius(3)
+            .opacity(selectedBucket == nil || selectedBucket == point.bucketDate ? 1.0 : 0.3)
+        }
+        .chartForegroundStyleScale(domain: allProjects, range: allProjects.map { colorFor($0) })
+        .chartXAxis { categoricalXAxis }
+        .chartYAxis { creditsYAxis }
         .chartXScale(domain: commonXScale)
         .chartLegend(.hidden)
         .frame(minHeight: chartMinHeight, maxHeight: chartMaxHeight)
@@ -475,6 +522,21 @@ struct BarChartView: View {
             AxisValueLabel {
                 if let v = value.as(Double.self) {
                     Text(String(format: "$%.0f", v))
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+    }
+
+    @AxisContentBuilder
+    private var creditsYAxis: some AxisContent {
+        AxisMarks(position: .leading) { value in
+            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                .foregroundStyle(.primary.opacity(0.18))
+            AxisValueLabel {
+                if let v = value.as(Double.self) {
+                    Text(String(format: "%.0f", v))
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(.white)
                 }
