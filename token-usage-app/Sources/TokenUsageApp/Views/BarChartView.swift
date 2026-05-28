@@ -257,7 +257,7 @@ struct BarChartView: View {
             }
 
             // ── Footer ─────────────────────────────────────────────────
-            ZStack(alignment: .center) {
+            ZStack(alignment: .top) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     primaryFooterMetric
                     Spacer()
@@ -275,6 +275,13 @@ struct BarChartView: View {
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(.yellow.opacity(0.85))
                 }
+            }
+            .frame(minHeight: 32, alignment: .top)
+            .overlay(alignment: .bottomTrailing) {
+                let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+                Text("v\(appVersion)")
+                    .font(.system(size: 9, weight: .regular, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.35))
             }
             .animation(.easeInOut(duration: 0.2), value: selectedBucket)
             .padding(.top, 2)
