@@ -35,10 +35,28 @@ def _record_compaction(session_id: str, ctx_tokens: int) -> None:
 
 
 def _resolve_subagent_transcript(transcript: str, agent_id: str):
-    parent_dir = Path(transcript).parent
-    parent_name = Path(transcript).name
-    candidates = sorted(parent_dir.glob("*.jsonl"),
-                        key=lambda p: p.stat().st_mtime, reverse=True)
+    transcript_path = Path(transcript)
+    parent_dir = transcript_path.parent
+    parent_name = transcript_path.name
+
+    direct_paths = [
+        parent_dir / "subagents" / f"agent-{agent_id}.jsonl",
+        parent_dir / transcript_path.stem / "subagents" / f"agent-{agent_id}.jsonl",
+    ]
+    for direct in direct_paths:
+        if direct.exists():
+            return str(direct)
+
+    if transcript_path.exists() and parent_name == f"agent-{agent_id}.jsonl":
+        return str(transcript_path)
+
+    candidates = sorted(
+        list(parent_dir.glob("*.jsonl"))
+        + list((parent_dir / "subagents").glob("agent-*.jsonl"))
+        + list((parent_dir / transcript_path.stem / "subagents").glob("agent-*.jsonl")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
     for c in candidates:
         if c.name == parent_name:
             continue
