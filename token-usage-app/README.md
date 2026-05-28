@@ -10,11 +10,11 @@ A native macOS floating widget that visualises Claude Code and Codex token costs
 
 ## Features
 
-Visualise AI spending (USD) across Claude and Codex sessions. Filter by tool (Claude / Codex), project, and timeframe (day / week / month).
+Visualise AI spending (USD) across Claude and Codex sessions. Filter by tool (Claude / Codex), project, agent scope, and timeframe (day / week / month).
 
 ### Charts
 
-Pick a chart type from the header menu. All charts respect the active source / project / timeframe filters.
+Pick a chart type from the header menu. All charts respect the active source / project / agent / timeframe filters.
 
 | Chart | Header label | What each bar shows | Use it to |
 |-------|--------------|---------------------|-----------|
@@ -57,7 +57,8 @@ Written by the `track-tokens.sh` Stop hook in the Claude Code plugin. `cost_usd`
   "model": "claude-sonnet-4-6",
   "project": "ai-plugins",
   "tokens": { "input": 45, "output": 1823, "cache_write": 8420, "cache_read": 112074 },
-  "cost_usd": 0.048312
+  "cost_usd": 0.048312,
+  "isSubAgent": false
 }
 ```
 
@@ -71,6 +72,7 @@ Written by the `track-tokens.sh` Stop hook in the Codex plugin. Token data is so
   "session_id": "uuid",
   "model": "gpt-5.5",
   "project": "ai-plugins",
+  "isSubAgent": false,
   "tokens": { "input": 45, "output": 1823, "cache_read": 112074, "reasoning": 342 },
   "credits": 3.031,
   "cost_usd": 0.121212

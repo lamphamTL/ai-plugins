@@ -2,6 +2,22 @@ import SwiftUI
 
 enum DisplayMode { case popover, window }
 
+private enum AgentScope: String, CaseIterable, Identifiable {
+    case all
+    case main
+    case subagent
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "All events"
+        case .main: return "Main-agent only"
+        case .subagent: return "Sub-agent only"
+        }
+    }
+}
+
 private struct DisplayModeKey: EnvironmentKey {
     static let defaultValue: DisplayMode = .popover
 }
@@ -36,6 +52,7 @@ struct ContentView: View {
     @State private var selectedProject: String? = nil
     @State private var selectedSource: String? = nil
     @State private var selectedModel: String? = nil
+    @State private var selectedAgentScope: AgentScope = .all
     @State private var chartMode: ChartMode = .cost
     @State private var isHovering = false
     @State private var barCount: Int = 7
@@ -224,11 +241,25 @@ struct ContentView: View {
                                 }
                             }
                         }
+                        Section("Agent") {
+                            ForEach(AgentScope.allCases) { scope in
+                                Button {
+                                    selectedAgentScope = scope
+                                } label: {
+                                    if selectedAgentScope == scope {
+                                        Label(scope.label, systemImage: "checkmark")
+                                    } else {
+                                        Text(scope.label)
+                                    }
+                                }
+                            }
+                        }
                         Section {
                             if isAnyFilterActive {
                                 Button("Reset filters") {
                                     selectedProject = nil
                                     selectedModel = nil
+                                    selectedAgentScope = .all
                                 }
                             }
                             Button("Reload") {
@@ -385,6 +416,7 @@ struct ContentView: View {
         }
         .onChange(of: selectedProject) { _, _ in chartData = computeChartData() }
         .onChange(of: selectedModel)   { _, _ in chartData = computeChartData() }
+        .onChange(of: selectedAgentScope) { _, _ in chartData = computeChartData() }
         .onChange(of: selectedKind)    { _, _ in chartData = computeChartData() }
         .onChange(of: scrollDate)      { _, _ in chartData = computeChartData() }
         .onChange(of: barCount)        { _, _ in chartData = computeChartData() }
@@ -465,8 +497,21 @@ struct ContentView: View {
         } else {
             byProject = base
         }
-        guard let m = selectedModel else { return byProject }
-        return byProject.filter { $0.model == m }
+        let byModel: [UsageEntry]
+        if let m = selectedModel {
+            byModel = byProject.filter { $0.model == m }
+        } else {
+            byModel = byProject
+        }
+
+        switch selectedAgentScope {
+        case .all:
+            return byModel
+        case .main:
+            return byModel.filter { !$0.isSubAgent }
+        case .subagent:
+            return byModel.filter { $0.isSubAgent }
+        }
     }
 
     // Time-window slice via binary search — O(log n + k)
@@ -568,7 +613,7 @@ struct ContentView: View {
     }
 
     private var isAnyFilterActive: Bool {
-        selectedProject != nil || selectedModel != nil
+        selectedProject != nil || selectedModel != nil || selectedAgentScope != .all
     }
 
     private static func initialScrollDate(for kind: TimeRangeKind) -> Date {

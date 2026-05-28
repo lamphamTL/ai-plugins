@@ -18,10 +18,23 @@ struct UsageEntry: Decodable, Identifiable {
     let tokens: TokenBreakdown
     let credits: Double?    // Codex only — from credit rate card
     let cost_usd: Double
+    let isSubAgent: Bool
     var source: String = "claude"   // injected by UsageStore after decode
 
     enum CodingKeys: String, CodingKey {
-        case ts, session_id, model, project, tokens, credits, cost_usd
+        case ts, session_id, model, project, tokens, credits, cost_usd, isSubAgent
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        ts = try container.decode(Date.self, forKey: .ts)
+        session_id = try container.decode(String.self, forKey: .session_id)
+        model = try container.decode(String.self, forKey: .model)
+        project = try container.decode(String.self, forKey: .project)
+        tokens = try container.decode(TokenBreakdown.self, forKey: .tokens)
+        credits = try container.decodeIfPresent(Double.self, forKey: .credits)
+        cost_usd = try container.decode(Double.self, forKey: .cost_usd)
+        isSubAgent = try container.decodeIfPresent(Bool.self, forKey: .isSubAgent) ?? false
     }
 
     var id: String { "\(ts.timeIntervalSince1970)-\(session_id)-\(source)" }
