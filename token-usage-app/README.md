@@ -19,6 +19,7 @@ Pick a chart type from the header menu. All charts respect the active source / p
 | Chart | Header label | What each bar shows | Use it to |
 |-------|--------------|---------------------|-----------|
 | **Spend** | `Spend` | Total `cost_usd` in the bucket | Track absolute spend over day / week / month |
+| **Credits** | `Credits` | Total Codex credits in the bucket, stacked by project | Track Codex credit burn without converting to USD; shown only when source filter is `Codex` |
 | **Cost per event** | `Cost per event` | `total_cost_usd / stop_events` (1 event = 1 prompt submitted and responded to) | Minimise $/event without sacrificing output quality — a downward trend means tighter prompts, response-compression skills, and leaner context are paying off |
 | **Event count** | `Event count` | Number of Stop events (turns) in the bucket | Gauge raw usage volume independent of cost |
 | **Cache hit** | `Cache hit` | Prompt-cache reuse ratio per bucket: `cache_read / (input + cache_read + cache_write)` for Claude, `cached_input / (fresh_input + cached_input)` for Codex | Spot cache invalidation regressions — drops correlate with `$/event` spikes |
