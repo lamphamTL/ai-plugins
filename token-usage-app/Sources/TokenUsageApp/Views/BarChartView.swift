@@ -276,6 +276,13 @@ struct BarChartView: View {
                         .foregroundStyle(.yellow.opacity(0.85))
                 }
             }
+            .frame(minHeight: 28)
+            .overlay(alignment: .bottomTrailing) {
+                let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+                Text("v\(appVersion)")
+                    .font(.system(size: 9, weight: .regular, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.35))
+            }
             .animation(.easeInOut(duration: 0.2), value: selectedBucket)
             .padding(.top, 2)
         }

@@ -374,6 +374,15 @@ body {
   color: rgba(255,196,0,0.85);
 }
 
+.footer-version {
+  position: absolute;
+  bottom: 3px;
+  right: 14px;
+  font-size: 9px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.35);
+}
+
 /* Popover menus */
 .popover {
   position: absolute;
@@ -581,6 +590,7 @@ body {
         <div class="footer-spacer"></div>
         <span class="footer-secondary" id="footerSecondary"></span>
         <span class="footer-credits" id="footerCredits"></span>
+        <span class="footer-version" id="footerVersion">v1.0.0</span>
       </div>
 
     </div><!-- panel-inner -->
@@ -628,6 +638,16 @@ body {
 </div><!-- panel-wrap -->
 
 <script>
+// ─── Version (fetched from repo VERSION file) ────────────────────────────────
+fetch('../VERSION')
+  .then(function (r) { return r.ok ? r.text() : null; })
+  .then(function (v) {
+    if (!v) return;
+    var el = document.getElementById('footerVersion');
+    if (el) el.textContent = 'v' + v.trim();
+  })
+  .catch(function () {});
+
 // ─── PRNG ────────────────────────────────────────────────────────────────────
 function mulberry32(seed) {
   return function() {
