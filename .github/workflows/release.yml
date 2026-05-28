@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-app:
+    runs-on: macos-14            # Apple Silicon, has Xcode + swiftc
+    strategy:
+      matrix:
+        arch: [arm64, x86_64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build .app
+        working-directory: token-usage-app
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: ./build.sh
+      - name: Package DMG
+        working-directory: token-usage-app
+        run: |
+          VERSION=$(cat ../VERSION)
+          STAGE=dmg-staging
+          rm -rf "$STAGE" && mkdir "$STAGE"
+          cp -R TokenUsageApp.app "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create \
+            -volname "Token Usage" \
+            -srcfolder "$STAGE" \
+            -ov -format UDZO \
+            "TokenUsageApp-${VERSION}-${{ matrix.arch }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmg-${{ matrix.arch }}
+          path: token-usage-app/*.dmg
+
+  release:
+    needs: build-app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: version
+        run: echo "tag=v$(cat VERSION)" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create / update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; uploading DMGs only."
+            gh release upload "$TAG" artifacts/*.dmg --clobber
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --generate-notes \
+            --title "Release $TAG" \
+            --target "$GITHUB_SHA" \
+            artifacts/*.dmg
