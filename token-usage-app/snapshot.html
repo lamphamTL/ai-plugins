@@ -231,6 +231,16 @@ body {
   font-weight: 600;
 }
 
+.credits-cycle {
+  font-size: 9px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.72);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .credits-track {
   height: 4px;
   border-radius: 3px;
@@ -557,6 +567,7 @@ body {
           <span class="credits-label">Weekly credits</span>
           <span class="credits-value" id="creditsValue">620.0 / 1000</span>
         </div>
+        <div class="credits-cycle" id="creditsCycle">Starts on next Codex use</div>
         <div class="credits-track">
           <div class="credits-fill" id="creditsFill" style="width: 62%; background: #ffd60a;"></div>
         </div>
@@ -1155,6 +1166,20 @@ function weeklyCodexCredits() {
     .reduce((s, e) => s + (e.credits || 0), 0);
 }
 
+function codexCycleRangeText() {
+  const today = new Date(); today.setHours(23, 59, 59, 999);
+  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); sevenDaysAgo.setHours(0,0,0,0);
+  const events = rawData
+    .filter(e => e.source === 'codex' && e.ts >= sevenDaysAgo && e.ts <= today)
+    .sort((a, b) => a.ts - b.ts);
+  if (events.length === 0) return 'Starts on next Codex use';
+  const start = new Date(events[0].ts);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+  const opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+  return start.toLocaleString('en-US', opts) + ' - ' + end.toLocaleString('en-US', opts);
+}
+
 function renderCreditsBar() {
   const wrap = document.getElementById('creditsBar');
   if (state.source === 'codex') {
@@ -1167,6 +1192,7 @@ function renderCreditsBar() {
     document.getElementById('creditsFill').style.background = col;
     document.getElementById('creditsValue').style.color = col;
     document.getElementById('creditsValue').textContent = cr.toFixed(1) + ' / ' + CREDITS_LIMIT;
+    document.getElementById('creditsCycle').textContent = codexCycleRangeText();
   } else {
     wrap.classList.remove('visible');
   }

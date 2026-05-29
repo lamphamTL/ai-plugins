@@ -136,6 +136,14 @@ struct ContentView: View {
         return max(3, Int(plotWidth / Self.targetBarPx))
     }
 
+    private func codexCycleRangeText(_ cycle: CodexCreditCycle) -> String {
+        guard let start = cycle.start, let end = cycle.end else {
+            return "Starts on next Codex use"
+        }
+        let format = Date.FormatStyle.dateTime.month(.abbreviated).day().hour().minute()
+        return "\(start.formatted(format)) - \(end.formatted(format))"
+    }
+
     var body: some View {
         ZStack {
             // Glass background
@@ -331,7 +339,8 @@ struct ContentView: View {
 
                 // ── Weekly credit tracker (Codex only) ───────────────────
                 if selectedSource == "codex" {
-                    let used   = store.weeklyCodexCredits
+                    let cycle  = store.codexCreditCycle
+                    let used   = cycle.used
                     let limit  = 1000.0
                     let pct    = min(used / limit, 1.0)
                     let color: Color = pct >= 0.9 ? .red : pct >= 0.7 ? .yellow : .green
@@ -345,6 +354,11 @@ struct ContentView: View {
                                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                                 .foregroundStyle(color)
                         }
+                        Text(codexCycleRangeText(cycle))
+                            .font(.system(size: 9, weight: .regular, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .foregroundStyle(.primary.opacity(0.72))
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 3)

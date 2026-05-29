@@ -115,6 +115,10 @@ Credit rates per model (credits / 1M tokens, source: Codex rate card):
 
 > **Note:** The $0.04/credit rate assumes a specific plan configuration. If your subscription or weekly limit differs, the actual cost per credit will vary.
 
+#### Weekly credit tracker
+
+The Codex `Weekly credits` tracker uses a rolling usage cycle, not a calendar Monday-Sunday week. The active cycle starts at the first Codex log entry after the previous cycle expires and ends exactly 7 days later. If the latest known cycle has expired and there is no later Codex usage, the tracker shows `0 / 1000` until the next Codex use starts a new cycle.
+
 ## Pricing sources
 
 | Source | Used for |

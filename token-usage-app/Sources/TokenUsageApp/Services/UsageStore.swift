@@ -11,6 +11,7 @@ final class UsageStore: ObservableObject {
     @Published private(set) var projectsBySource: [String: [String]] = [:]
     @Published private(set) var modelsBySource: [String: [String]] = [:]
     @Published private(set) var weeklyCodexCredits: Double = 0
+    @Published private(set) var codexCreditCycle: CodexCreditCycle = .inactive
     // Stable palette index per projectDisplayName, persisted across launches.
     @Published private(set) var projectColors: [String: Int] = [:]
     private static let projectColorsKey = "projectColorIndex"
@@ -19,6 +20,7 @@ final class UsageStore: ObservableObject {
     private var codexWatcher: FileWatcher?
     private var claudeLineBuffer = ""
     private var codexLineBuffer = ""
+    private var creditCycleTimer: AnyCancellable?
 
     nonisolated static let home = FileManager.default.homeDirectoryForCurrentUser
     nonisolated init() {}
@@ -26,6 +28,8 @@ final class UsageStore: ObservableObject {
     nonisolated static let codexURL:  URL = home.appendingPathComponent(".codex/token-usage/usage.jsonl")
 
     func load() {
+        startCreditCycleTimer()
+
         if let saved = UserDefaults.standard.dictionary(forKey: Self.projectColorsKey) as? [String: Int] {
             projectColors = saved
         }
@@ -73,7 +77,8 @@ final class UsageStore: ObservableObject {
                 self.entriesBySource     = derived.bySource
                 self.projectsBySource    = derived.projects
                 self.modelsBySource      = derived.models
-                self.weeklyCodexCredits  = derived.weeklyCredits
+                self.codexCreditCycle    = derived.codexCreditCycle
+                self.weeklyCodexCredits  = derived.codexCreditCycle.used
                 self.assignMissingProjectColors(for: all)
                 self.isLoaded            = true
             }
@@ -85,6 +90,8 @@ final class UsageStore: ObservableObject {
         codexWatcher?.stop()
         claudeWatcher = nil
         codexWatcher = nil
+        creditCycleTimer?.cancel()
+        creditCycleTimer = nil
         claudeLineBuffer = ""
         codexLineBuffer = ""
         entries = []
@@ -92,6 +99,7 @@ final class UsageStore: ObservableObject {
         projectsBySource = [:]
         modelsBySource = [:]
         weeklyCodexCredits = 0
+        codexCreditCycle = .inactive
         isLoaded = false
         load()
     }
@@ -134,7 +142,8 @@ final class UsageStore: ObservableObject {
         entriesBySource    = derived.bySource
         projectsBySource   = derived.projects
         modelsBySource     = derived.models
-        weeklyCodexCredits = derived.weeklyCredits
+        codexCreditCycle   = derived.codexCreditCycle
+        weeklyCodexCredits = derived.codexCreditCycle.used
         assignMissingProjectColors(for: fresh)
     }
 
@@ -160,8 +169,26 @@ final class UsageStore: ObservableObject {
         entriesBySource    = derived.bySource
         projectsBySource   = derived.projects
         modelsBySource     = derived.models
-        weeklyCodexCredits = derived.weeklyCredits
+        codexCreditCycle   = derived.codexCreditCycle
+        weeklyCodexCredits = derived.codexCreditCycle.used
         assignMissingProjectColors(for: newEntries)
+    }
+
+    private func startCreditCycleTimer() {
+        guard creditCycleTimer == nil else { return }
+        creditCycleTimer = Timer.publish(every: 60, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] now in
+                Task { @MainActor [weak self] in
+                    self?.refreshCodexCreditCycle(now: now)
+                }
+            }
+    }
+
+    private func refreshCodexCreditCycle(now: Date = Date()) {
+        let cycle = Self.computeCodexCreditCycle(from: entriesBySource["codex"] ?? [], now: now)
+        codexCreditCycle = cycle
+        weeklyCodexCredits = cycle.used
     }
 
     // MARK: - Derived cache builder (nonisolated — runs off main thread for initial load)
@@ -170,7 +197,7 @@ final class UsageStore: ObservableObject {
         let bySource: [String: [UsageEntry]]
         let projects: [String: [String]]
         let models: [String: [String]]
-        let weeklyCredits: Double
+        let codexCreditCycle: CodexCreditCycle
     }
 
     nonisolated private static func buildDerived(from entries: [UsageEntry]) -> Derived {
@@ -193,13 +220,49 @@ final class UsageStore: ObservableObject {
         }
         let models = modelSets.mapValues { set in set.sorted() }
 
-        let cal = Calendar(identifier: .iso8601)
-        let weekStart = cal.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
-        let weeklyCredits = (bySource["codex"] ?? [])
-            .filter { $0.ts >= weekStart }
-            .compactMap(\.credits)
-            .reduce(0, +)
+        let codexCreditCycle = Self.computeCodexCreditCycle(from: bySource["codex"] ?? [], now: Date())
 
-        return Derived(bySource: bySource, projects: projects, models: models, weeklyCredits: weeklyCredits)
+        return Derived(bySource: bySource, projects: projects, models: models, codexCreditCycle: codexCreditCycle)
+    }
+
+    nonisolated static func computeCodexCreditCycle(from entries: [UsageEntry], now: Date) -> CodexCreditCycle {
+        let sorted = entries.sorted { $0.ts < $1.ts }
+        var cycleStart: Date?
+        var cycleEnd: Date?
+        var used = 0.0
+
+        for entry in sorted {
+            guard let start = cycleStart, let end = cycleEnd else {
+                cycleStart = entry.ts
+                cycleEnd = entry.ts.addingTimeInterval(Self.codexCreditCycleDuration)
+                used = entry.credits ?? 0
+                continue
+            }
+
+            if entry.ts >= end {
+                cycleStart = entry.ts
+                cycleEnd = entry.ts.addingTimeInterval(Self.codexCreditCycleDuration)
+                used = entry.credits ?? 0
+            } else if entry.ts >= start {
+                used += entry.credits ?? 0
+            }
+        }
+
+        guard let cycleStart, let cycleEnd, now < cycleEnd else { return .inactive }
+        return CodexCreditCycle(used: used, start: cycleStart, end: cycleEnd)
+    }
+
+    nonisolated private static let codexCreditCycleDuration: TimeInterval = 7 * 24 * 60 * 60
+}
+
+struct CodexCreditCycle: Equatable {
+    let used: Double
+    let start: Date?
+    let end: Date?
+
+    static let inactive = CodexCreditCycle(used: 0, start: nil, end: nil)
+
+    var isActive: Bool {
+        start != nil && end != nil
     }
 }
