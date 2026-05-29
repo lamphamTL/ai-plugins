@@ -138,7 +138,7 @@ struct ContentView: View {
 
     private func codexCycleRangeText(_ cycle: CodexCreditCycle) -> String {
         guard let start = cycle.start, let end = cycle.end else {
-            return "Not enough usage to compute the current cycle."
+            return "Not enough usage to compute the current cycle"
         }
         let format = Date.FormatStyle.dateTime.month(.abbreviated).day().hour().minute()
         return "\(start.formatted(format)) - \(end.formatted(format))"
@@ -346,29 +346,33 @@ struct ContentView: View {
                     let color: Color = pct >= 0.9 ? .red : pct >= 0.7 ? .yellow : .green
                     VStack(alignment: .leading, spacing: 3) {
                         HStack {
-                            Text("Weekly credits")
+                            Text("Weekly credit")
                                 .font(.system(size: 10, weight: .medium, design: .rounded))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(String(format: "%.1f / 1000", used))
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                .foregroundStyle(color)
+                            if cycle.isActive {
+                                Text(String(format: "%.1f / 1000", used))
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(color)
+                            }
                         }
                         Text(codexCycleRangeText(cycle))
                             .font(.system(size: 9, weight: .regular, design: .rounded))
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                             .foregroundStyle(.primary.opacity(0.72))
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(.primary.opacity(0.08))
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(color.opacity(0.8))
-                                    .frame(width: geo.size.width * pct)
+                        if cycle.isActive {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(.primary.opacity(0.08))
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(color.opacity(0.8))
+                                        .frame(width: geo.size.width * pct)
+                                }
                             }
+                            .frame(height: 4)
                         }
-                        .frame(height: 4)
                     }
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
