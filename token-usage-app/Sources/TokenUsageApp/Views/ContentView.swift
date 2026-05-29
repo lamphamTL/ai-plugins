@@ -138,7 +138,7 @@ struct ContentView: View {
 
     private func codexCycleRangeText(_ cycle: CodexCreditCycle) -> String {
         guard let start = cycle.start, let end = cycle.end else {
-            return "Starts on next Codex use"
+            return "Not enough usage to compute the current cycle."
         }
         let format = Date.FormatStyle.dateTime.month(.abbreviated).day().hour().minute()
         return "\(start.formatted(format)) - \(end.formatted(format))"
