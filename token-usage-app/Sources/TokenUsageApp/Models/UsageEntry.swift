@@ -3,11 +3,16 @@ import Foundation
 struct TokenBreakdown: Decodable, Hashable {
     let input: Int
     let output: Int
-    let cache_write: Int?   // Claude only
+    let cache_write: Int?     // Claude only — legacy entries (pre-TTL-split)
+    let cache_write_5m: Int?  // Claude only — 5m-TTL writes (new entries)
+    let cache_write_1h: Int?  // Claude only — 1h-TTL writes (new entries)
     let cache_read: Int
-    let reasoning: Int?     // Codex only
+    let reasoning: Int?       // Codex only
 
-    var total: Int { input + output + (cache_write ?? 0) + cache_read + (reasoning ?? 0) }
+    /// Sum of all cache-write tiers; handles both legacy and new entries.
+    var cache_write_total: Int { (cache_write ?? 0) + (cache_write_5m ?? 0) + (cache_write_1h ?? 0) }
+
+    var total: Int { input + output + cache_write_total + cache_read + (reasoning ?? 0) }
 }
 
 struct UsageEntry: Decodable, Identifiable {

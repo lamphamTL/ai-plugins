@@ -579,7 +579,7 @@ struct ContentView: View {
             if let cr = entry.credits { bucketCredits[bucket, default: 0] += cr }
             let t = entry.tokens
             bucketCacheRead[bucket,  default: 0] += t.cache_read
-            bucketCacheTotal[bucket, default: 0] += t.cache_read + (t.cache_write ?? 0) + t.input
+            bucketCacheTotal[bucket, default: 0] += t.cache_read + t.cache_write_total + t.input
         }
 
         var points: [ChartPoint] = []
