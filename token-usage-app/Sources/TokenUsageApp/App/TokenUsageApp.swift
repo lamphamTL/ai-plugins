@@ -72,7 +72,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func updateStatusTitle(entries: [UsageEntry]) {
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = Calendar.cycleAnchored.startOfDay(for: Date())
         let cost = entries.filter { $0.ts >= today }.reduce(0.0) { $0 + $1.cost_usd }
         let text = String(format: " $%.2f", cost)
         let attrs: [NSAttributedString.Key: Any] = [

@@ -50,8 +50,7 @@ struct CompactNavigationBar: View {
     }
 
     private func shift(by direction: Int) {
-        var cal = Calendar.current
-        if kind == .week { cal.firstWeekday = 2 }
+        let cal = Calendar.cycleAnchored
         guard let newDate = cal.date(byAdding: kind.bucketComponent, value: direction, to: scrollDate) else { return }
         // Going back: block if the window would end before any data exists
         let windowEnd = cal.date(byAdding: kind.bucketComponent, value: barCount, to: newDate)

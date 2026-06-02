@@ -193,7 +193,7 @@ final class UsageStore: ObservableObject {
         }
         let models = modelSets.mapValues { set in set.sorted() }
 
-        let cal = Calendar(identifier: .iso8601)
+        let cal = Calendar.cycleAnchored
         let weekStart = cal.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
         let weeklyCredits = (bySource["codex"] ?? [])
             .filter { $0.ts >= weekStart }
