@@ -194,6 +194,7 @@ struct BarChartView: View {
 
     @ViewBuilder
     private func dayLabel(for date: Date) -> some View {
+        // Uses local TZ so "Today" matches the user's clock, not the billing window.
         let cal = Calendar.current
         if cal.isDateInToday(date) {
             Text("Today")
@@ -234,7 +235,7 @@ struct BarChartView: View {
               clickedValue >= 0
         else { return nil }
 
-        let cal = Calendar.current
+        let cal = Calendar.cycleAnchored
         guard let interval = cal.dateInterval(of: kind.bucketComponent, for: clickedDate) else { return nil }
         let bucketStart = interval.start
 

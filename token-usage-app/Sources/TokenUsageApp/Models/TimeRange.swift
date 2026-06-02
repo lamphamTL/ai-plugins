@@ -1,5 +1,14 @@
 import Foundation
 
+extension Calendar {
+    static let cycleAnchored: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "UTC")!
+        c.firstWeekday = 2 // Monday
+        return c
+    }()
+}
+
 enum TimeRangeKind: String, CaseIterable, Identifiable {
     case day   = "Day"
     case week  = "Week"
@@ -40,9 +49,7 @@ struct TimeWindow {
     let anchorDate: Date  // the last bar contains this date
 
     private var calendar: Calendar {
-        var cal = Calendar.current
-        if kind == .week { cal.firstWeekday = 2 } // Monday
-        return cal
+        Calendar.cycleAnchored
     }
 
     // End of the bar that contains anchorDate (exclusive)
@@ -97,8 +104,7 @@ struct TimeWindow {
     }
 
     static func initialScrollDate(for kind: TimeRangeKind, count: Int, relativeTo now: Date = Date()) -> Date {
-        var cal = Calendar.current
-        if kind == .week { cal.firstWeekday = 2 }
+        let cal = Calendar.cycleAnchored
         let bucketBack = cal.date(byAdding: kind.bucketComponent, value: -(max(count, 1) - 1), to: now)!
         return cal.dateInterval(of: kind.bucketComponent, for: bucketBack)!.start
     }
