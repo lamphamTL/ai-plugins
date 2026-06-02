@@ -51,7 +51,7 @@ struct ChartData {
     let bucketCounts: [Date: Int]
     let bucketCredits: [Date: Double]
     let bucketCacheRead:  [Date: Int]   // numerator for cache hit rate
-    let bucketCacheTotal: [Date: Int]   // denominator = cache_read + cache_write + input
+    let bucketCacheTotal: [Date: Int]   // denominator = cache_read + cache_write_5m + cache_write_1h + input
 
     static let empty = ChartData(points: [], totalCost: 0, totalCredits: 0,
                                  totalEntries: 0, bucketCounts: [:], bucketCredits: [:],
@@ -194,6 +194,7 @@ struct BarChartView: View {
 
     @ViewBuilder
     private func dayLabel(for date: Date) -> some View {
+        // Uses local TZ so "Today" matches the user's clock, not the billing window.
         let cal = Calendar.current
         if cal.isDateInToday(date) {
             Text("Today")
@@ -234,7 +235,7 @@ struct BarChartView: View {
               clickedValue >= 0
         else { return nil }
 
-        let cal = Calendar.current
+        let cal = Calendar.cycleAnchored
         guard let interval = cal.dateInterval(of: kind.bucketComponent, for: clickedDate) else { return nil }
         let bucketStart = interval.start
 

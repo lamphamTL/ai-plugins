@@ -2,6 +2,22 @@ import SwiftUI
 
 enum DisplayMode { case popover, window }
 
+private enum AgentScope: String, CaseIterable, Identifiable {
+    case all
+    case main
+    case subagent
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: return "All events"
+        case .main: return "Main-agent only"
+        case .subagent: return "Sub-agent only"
+        }
+    }
+}
+
 private struct DisplayModeKey: EnvironmentKey {
     static let defaultValue: DisplayMode = .popover
 }
@@ -36,6 +52,7 @@ struct ContentView: View {
     @State private var selectedProject: String? = nil
     @State private var selectedSource: String? = nil
     @State private var selectedModel: String? = nil
+    @State private var selectedAgentScope: AgentScope = .all
     @State private var chartMode: ChartMode = .cost
     @State private var isHovering = false
     @State private var barCount: Int = 7
@@ -230,11 +247,25 @@ struct ContentView: View {
                                 }
                             }
                         }
+                        Section("Agent") {
+                            ForEach(AgentScope.allCases) { scope in
+                                Button {
+                                    selectedAgentScope = scope
+                                } label: {
+                                    if selectedAgentScope == scope {
+                                        Label(scope.label, systemImage: "checkmark")
+                                    } else {
+                                        Text(scope.label)
+                                    }
+                                }
+                            }
+                        }
                         Section {
                             if isAnyFilterActive {
                                 Button("Reset filters") {
                                     selectedProject = nil
                                     selectedModel = nil
+                                    selectedAgentScope = .all
                                 }
                             }
                             Button("Reload") {
@@ -394,6 +425,7 @@ struct ContentView: View {
         }
         .onChange(of: selectedProject) { _, _ in chartData = computeChartData() }
         .onChange(of: selectedModel)   { _, _ in chartData = computeChartData() }
+        .onChange(of: selectedAgentScope) { _, _ in chartData = computeChartData() }
         .onChange(of: selectedKind)    { _, _ in chartData = computeChartData() }
         .onChange(of: scrollDate)      { _, _ in chartData = computeChartData() }
         .onChange(of: barCount)        { _, _ in chartData = computeChartData() }
@@ -433,8 +465,7 @@ struct ContentView: View {
         let presentAnchored = TimeWindow.initialScrollDate(for: kind, count: count)
         guard let firstEntry = store.entries.first else { return presentAnchored }
 
-        var cal = Calendar.current
-        if kind == .week { cal.firstWeekday = 2 }
+        let cal = Calendar.cycleAnchored
         let comp = kind.bucketComponent
 
         guard let dataStart = cal.dateInterval(of: comp, for: firstEntry.ts)?.start else { return presentAnchored }
@@ -474,16 +505,28 @@ struct ContentView: View {
         } else {
             byProject = base
         }
-        guard let m = selectedModel else { return byProject }
-        return byProject.filter { $0.model == m }
+        let byModel: [UsageEntry]
+        if let m = selectedModel {
+            byModel = byProject.filter { $0.model == m }
+        } else {
+            byModel = byProject
+        }
+
+        switch selectedAgentScope {
+        case .all:
+            return byModel
+        case .main:
+            return byModel.filter { !$0.isSubAgent }
+        case .subagent:
+            return byModel.filter { $0.isSubAgent }
+        }
     }
 
     // Time-window slice via binary search — O(log n + k)
     private var visibleEntries: [UsageEntry] {
         let entries = filteredEntries
         guard !entries.isEmpty else { return [] }
-        var cal = Calendar.current
-        if selectedKind == .week { cal.firstWeekday = 2 }
+        let cal = Calendar.cycleAnchored
         let end = cal.date(byAdding: selectedKind.bucketComponent,
                            value: barCount,
                            to: scrollDate) ?? scrollDate.addingTimeInterval(visibleDuration)
@@ -507,7 +550,7 @@ struct ContentView: View {
         let visible = visibleEntries
         guard !visible.isEmpty else { return .empty }
 
-        let calendar = Calendar.current
+        let calendar = Calendar.cycleAnchored
         let component = selectedKind.bucketComponent
         let multiSource = Set(visible.map(\.source)).count > 1
 
@@ -534,7 +577,7 @@ struct ContentView: View {
             if let cr = entry.credits { bucketCredits[bucket, default: 0] += cr }
             let t = entry.tokens
             bucketCacheRead[bucket,  default: 0] += t.cache_read
-            bucketCacheTotal[bucket, default: 0] += t.cache_read + (t.cache_write ?? 0) + t.input
+            bucketCacheTotal[bucket, default: 0] += t.cache_read + t.cache_write_total + t.input
         }
 
         var points: [ChartPoint] = []
@@ -578,7 +621,7 @@ struct ContentView: View {
     }
 
     private var isAnyFilterActive: Bool {
-        selectedProject != nil || selectedModel != nil
+        selectedProject != nil || selectedModel != nil || selectedAgentScope != .all
     }
 
     private static func initialScrollDate(for kind: TimeRangeKind) -> Date {

@@ -11,5 +11,6 @@ def build_entry(result: dict, spend: dict) -> dict:
         "tokens":     result["deltas"],
         "cost_usd":   spend["cost_usd"],
         "isSubAgent": bool(result["agent_id"]),
+        "agent_id":   result["agent_id"],
         "agent_type": result["agent_type"],
     }

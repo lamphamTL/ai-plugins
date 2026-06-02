@@ -620,6 +620,9 @@ body {
       <div class="popover-divider"></div>
       <div class="popover-section-label">Model</div>
       <div id="filterModelItems"></div>
+      <div class="popover-divider"></div>
+      <div class="popover-section-label">Agent</div>
+      <div id="filterAgentItems"></div>
       <div class="popover-divider" id="filterResetDivider"></div>
       <div id="filterActionItems">
         <button class="popover-item" id="resetFiltersBtn" onclick="resetFilters()" style="display:none">
@@ -665,6 +668,7 @@ const state = {
   scrollOffset: 0,
   project: null,
   model: null,
+  agentScope: 'all',
   chartMode: 'cost',
   selectedBucket: null,
   seed: 42,
@@ -737,6 +741,7 @@ function generateData(seed) {
           project: PROJECTS[pi],
           source,
           model,
+          isSubAgent: source === 'claude' && rng() < 0.22,
           cost_usd: spend,
           eventCount: events,
           cacheRead,
@@ -810,6 +815,8 @@ function getFilteredData() {
     if (state.source && e.source !== state.source) return false;
     if (state.project && e.project !== state.project) return false;
     if (state.model && e.model !== state.model) return false;
+    if (state.agentScope === 'main' && e.isSubAgent) return false;
+    if (state.agentScope === 'subagent' && !e.isSubAgent) return false;
     return true;
   });
 }
@@ -1199,7 +1206,7 @@ function renderChartModeBtn() {
 
 // ─── Filter button + popover ──────────────────────────────────────────────────
 function renderFilterMenu(filtered) {
-  const filterActive = state.project !== null || state.model !== null;
+  const filterActive = state.project !== null || state.model !== null || state.agentScope !== 'all';
   const badge = document.getElementById('filterBadge');
   const btn   = document.getElementById('filterBtn');
   badge.classList.toggle('visible', filterActive);
@@ -1246,6 +1253,24 @@ function renderFilterMenu(filtered) {
       return () => { state.model = mo; state.selectedBucket = null; closeMenus(); render(); };
     })();
     mContainer.appendChild(btn);
+  }
+
+  const agentContainer = document.getElementById('filterAgentItems');
+  agentContainer.innerHTML = '';
+  const agentScopes = [
+    ['all', 'All events'],
+    ['main', 'Main-agent only'],
+    ['subagent', 'Sub-agent only']
+  ];
+  for (const [scope, label] of agentScopes) {
+    const btn = document.createElement('button');
+    btn.className = 'popover-item' + (state.agentScope === scope ? ' active' : '');
+    btn.innerHTML = `<span class="popover-checkmark">${state.agentScope === scope ? '✓' : ''}</span>${label}`;
+    btn.onclick = (() => {
+      const s = scope;
+      return () => { state.agentScope = s; state.selectedBucket = null; closeMenus(); render(); };
+    })();
+    agentContainer.appendChild(btn);
   }
 
   // Reset button visibility
@@ -1342,6 +1367,7 @@ function goToNow() {
 function resetFilters() {
   state.project = null;
   state.model   = null;
+  state.agentScope = 'all';
   state.selectedBucket = null;
   closeMenus();
   render();
