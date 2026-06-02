@@ -69,7 +69,7 @@ def _resolve_subagent_transcript(transcript: str, agent_id: str):
 
 
 def _read_transcript_totals(transcript: str):
-    total_input = total_output = total_cache_write = total_cache_read = 0
+    total_input = total_output = total_cache_write_5m = total_cache_write_1h = total_cache_read = 0
     transcript_model = None
     with open(transcript, encoding="utf-8") as f:
         for line in f:
@@ -81,13 +81,19 @@ def _read_transcript_totals(transcript: str):
                 usage = msg.get("usage")
                 if not usage:
                     continue
-                total_input       += usage.get("input_tokens", 0)
-                total_output      += usage.get("output_tokens", 0)
-                total_cache_write += usage.get("cache_creation_input_tokens", 0)
-                total_cache_read  += usage.get("cache_read_input_tokens", 0)
+                total_input  += usage.get("input_tokens", 0)
+                total_output += usage.get("output_tokens", 0)
+                total_cache_read += usage.get("cache_read_input_tokens", 0)
+                cc = usage.get("cache_creation") or {}
+                if cc:
+                    total_cache_write_5m += cc.get("ephemeral_5m_input_tokens", 0)
+                    total_cache_write_1h += cc.get("ephemeral_1h_input_tokens", 0)
+                else:
+                    # Legacy transcript without per-TTL breakdown — treat as 5m
+                    total_cache_write_5m += usage.get("cache_creation_input_tokens", 0)
             except Exception:
                 pass
-    return total_input, total_output, total_cache_write, total_cache_read, transcript_model
+    return total_input, total_output, total_cache_write_5m, total_cache_write_1h, total_cache_read, transcript_model
 
 
 def prepare_data_source(stdin_data: dict):
@@ -116,7 +122,7 @@ def prepare_data_source(stdin_data: dict):
     if not transcript or not Path(transcript).exists():
         return None
 
-    total_input, total_output, total_cache_write, total_cache_read, transcript_model = \
+    total_input, total_output, total_cache_write_5m, total_cache_write_1h, total_cache_read, transcript_model = \
         _read_transcript_totals(transcript)
 
     USAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -129,19 +135,27 @@ def prepare_data_source(stdin_data: dict):
         except Exception:
             pass
 
-    delta_input       = total_input       - prev.get("input", 0)
-    delta_output      = total_output      - prev.get("output", 0)
-    delta_cache_write = total_cache_write - prev.get("cache_write", 0)
-    delta_cache_read  = total_cache_read  - prev.get("cache_read", 0)
+    delta_input         = total_input         - prev.get("input", 0)
+    delta_output        = total_output        - prev.get("output", 0)
+    delta_cache_read    = total_cache_read    - prev.get("cache_read", 0)
+
+    # Baseline for cache_write_5m: use new key if present, else fall back to legacy
+    # cache_write key (one-release compat window so in-flight sessions don't double-count).
+    prev_5m = prev.get("cache_write_5m") if "cache_write_5m" in prev else prev.get("cache_write", 0)
+    prev_1h = prev.get("cache_write_1h", 0)
+
+    delta_cache_write_5m = total_cache_write_5m - prev_5m
+    delta_cache_write_1h = total_cache_write_1h - prev_1h
 
     if delta_input == 0 and delta_output == 0:
         return None
 
     state[state_key] = {
-        "input":       total_input,
-        "output":      total_output,
-        "cache_write": total_cache_write,
-        "cache_read":  total_cache_read,
+        "input":          total_input,
+        "output":         total_output,
+        "cache_write_5m": total_cache_write_5m,
+        "cache_write_1h": total_cache_write_1h,
+        "cache_read":     total_cache_read,
     }
     STATE_JSON.write_text(json.dumps(state))
 
@@ -152,10 +166,11 @@ def prepare_data_source(stdin_data: dict):
         "agent_id":   agent_id,
         "agent_type": agent_type,
         "deltas": {
-            "input":       delta_input,
-            "output":      delta_output,
-            "cache_write": delta_cache_write,
-            "cache_read":  delta_cache_read,
+            "input":          delta_input,
+            "output":         delta_output,
+            "cache_write_5m": delta_cache_write_5m,
+            "cache_write_1h": delta_cache_write_1h,
+            "cache_read":     delta_cache_read,
         },
         "_prev": prev,
     }

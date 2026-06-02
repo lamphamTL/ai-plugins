@@ -51,7 +51,7 @@ struct ChartData {
     let bucketCounts: [Date: Int]
     let bucketCredits: [Date: Double]
     let bucketCacheRead:  [Date: Int]   // numerator for cache hit rate
-    let bucketCacheTotal: [Date: Int]   // denominator = cache_read + cache_write + input
+    let bucketCacheTotal: [Date: Int]   // denominator = cache_read + cache_write_5m + cache_write_1h + input
 
     static let empty = ChartData(points: [], totalCost: 0, totalCredits: 0,
                                  totalEntries: 0, bucketCounts: [:], bucketCredits: [:],
