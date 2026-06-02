@@ -15,7 +15,7 @@ def compute_spend(model: str, deltas: dict):
     cost = round(
         (deltas["input"] * r["ri"]
          + deltas["output"] * r["ro"]
-         + deltas["cache_write_5m"] * r["rw"]
+         + deltas["cache_write_5m"] * r["rw_5m"]
          + deltas["cache_write_1h"] * r["rw_1h"]
          + deltas["cache_read"] * r["rc"]) / 1_000_000,
         6,

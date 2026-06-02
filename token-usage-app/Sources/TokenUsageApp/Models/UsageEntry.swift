@@ -4,8 +4,8 @@ struct TokenBreakdown: Decodable, Hashable {
     let input: Int
     let output: Int
     let cache_write: Int?     // Claude only — legacy entries (pre-TTL-split)
-    let cache_write_5m: Int?  // Claude only — 5m-TTL writes (new entries)
-    let cache_write_1h: Int?  // Claude only — 1h-TTL writes (new entries)
+    let cache_write_5m: Int?  // Claude only — 5m-TTL writes
+    let cache_write_1h: Int?  // Claude only — 1h-TTL writes
     let cache_read: Int
     let reasoning: Int?       // Codex only
 
