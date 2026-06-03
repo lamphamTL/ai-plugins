@@ -21,6 +21,50 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: ./build.sh
+      - name: Import Developer ID certificate
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        run: |
+          if [[ -z "$APPLE_DEVELOPER_ID_CERTIFICATE_BASE64" || -z "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD" || -z "$KEYCHAIN_PASSWORD" ]]; then
+            echo "Missing Apple signing secrets. Set APPLE_DEVELOPER_ID_CERTIFICATE_BASE64, APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD, and APPLE_KEYCHAIN_PASSWORD." >&2
+            exit 1
+          fi
+
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id-application.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo -n "$APPLE_DEVELOPER_ID_CERTIFICATE_BASE64" | base64 -D -o "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -P "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+      - name: Sign .app
+        working-directory: token-usage-app
+        env:
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+        run: |
+          if [[ -z "$APPLE_CODESIGN_IDENTITY" ]]; then
+            echo "Missing APPLE_CODESIGN_IDENTITY secret, e.g. 'Developer ID Application: Name (TEAMID)'." >&2
+            exit 1
+          fi
+
+          codesign \
+            --force \
+            --options runtime \
+            --timestamp \
+            --sign "$APPLE_CODESIGN_IDENTITY" \
+            TokenUsageApp.app
+
+          codesign --verify --strict --verbose=2 TokenUsageApp.app
       - name: Package DMG
         working-directory: token-usage-app
         run: |
@@ -34,6 +78,44 @@ jobs:
             -srcfolder "$STAGE" \
             -ov -format UDZO \
             "TokenUsageApp-${VERSION}-${{ matrix.arch }}.dmg"
+      - name: Sign DMG
+        working-directory: token-usage-app
+        env:
+          APPLE_CODESIGN_IDENTITY: ${{ secrets.APPLE_CODESIGN_IDENTITY }}
+        run: |
+          VERSION=$(cat ../VERSION)
+          DMG="TokenUsageApp-${VERSION}-${{ matrix.arch }}.dmg"
+
+          codesign \
+            --force \
+            --timestamp \
+            --sign "$APPLE_CODESIGN_IDENTITY" \
+            "$DMG"
+
+          codesign --verify --verbose=2 "$DMG"
+      - name: Notarize and staple DMG
+        working-directory: token-usage-app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          if [[ -z "$APPLE_ID" || -z "$APPLE_TEAM_ID" || -z "$APPLE_APP_SPECIFIC_PASSWORD" ]]; then
+            echo "Missing Apple notarization secrets. Set APPLE_ID, APPLE_TEAM_ID, and APPLE_APP_SPECIFIC_PASSWORD." >&2
+            exit 1
+          fi
+
+          VERSION=$(cat ../VERSION)
+          DMG="TokenUsageApp-${VERSION}-${{ matrix.arch }}.dmg"
+
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --wait
+
+          xcrun stapler staple "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose "$DMG"
       - uses: actions/upload-artifact@v4
         with:
           name: dmg-${{ matrix.arch }}
