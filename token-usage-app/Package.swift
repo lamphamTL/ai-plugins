@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "TokenUsageApp",
             path: "Sources/TokenUsageApp"
+        ),
+        .testTarget(
+            name: "TokenUsageAppTests",
+            dependencies: ["TokenUsageApp"],
+            path: "Tests/TokenUsageAppTests"
         )
     ]
 )

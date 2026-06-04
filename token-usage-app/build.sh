@@ -26,10 +26,12 @@ SOURCES=$(find "$SRC_DIR" -name "*.swift" | sort)
 
 echo "→ Compiling $APP_NAME ($ARCH)..."
 mkdir -p "$BUILD_DIR"
+mkdir -p "$BUILD_DIR/module-cache"
 
 swiftc \
   -sdk "$SDK" \
   -target "${ARCH}-apple-macosx$MIN_OS" \
+  -module-cache-path "$BUILD_DIR/module-cache" \
   -framework SwiftUI \
   -framework Charts \
   -framework ServiceManagement \
