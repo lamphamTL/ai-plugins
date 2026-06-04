@@ -104,13 +104,12 @@ final class CodexCreditCycleTests: XCTestCase {
         XCTAssertEqual(cycle.inactiveReason, .manuallyEnded)
     }
 
-    func testManualEndMarkerIgnoresUnmarkedUsageUntilStartMarker() {
-        let newStart = date("2026-05-30T10:00:00Z")
+    func testManualEndMarkerStartsNewCycleAtNextUsageEntry() {
+        let newStart = date("2026-05-29T12:00:00Z")
         let cycle = UsageStore.computeCodexCreditCycle(
             from: [
                 entry(at: date("2026-05-27T10:00:00Z"), credits: 10),
-                entry(at: date("2026-05-29T12:00:00Z"), credits: 999),
-                entry(at: newStart, credits: 4, type: UsageEntry.codexCreditCycleStartType),
+                entry(at: newStart, credits: 4),
                 entry(at: date("2026-05-31T10:00:00Z"), credits: 6)
             ],
             endMarkers: [
@@ -121,10 +120,10 @@ final class CodexCreditCycleTests: XCTestCase {
 
         XCTAssertEqual(cycle.used, 10)
         XCTAssertEqual(cycle.start, newStart)
-        XCTAssertEqual(cycle.end, date("2026-06-06T10:00:00Z"))
+        XCTAssertEqual(cycle.end, date("2026-06-05T12:00:00Z"))
     }
 
-    func testUnmarkedUsageAfterManualEndDoesNotRestartCycle() {
+    func testManualEndMarkerTakesPrecedenceOverGapCalculation() {
         let cycle = UsageStore.computeCodexCreditCycle(
             from: [
                 entry(at: date("2026-05-27T10:00:00Z"), credits: 10),
@@ -136,8 +135,10 @@ final class CodexCreditCycleTests: XCTestCase {
             now: date("2026-05-29T12:01:00Z")
         )
 
-        XCTAssertEqual(cycle, .inactive)
-        XCTAssertEqual(cycle.inactiveReason, .awaitingNextUse)
+        XCTAssertTrue(cycle.isActive)
+        XCTAssertEqual(cycle.used, 999)
+        XCTAssertEqual(cycle.start, date("2026-05-29T12:00:00Z"))
+        XCTAssertEqual(cycle.end, date("2026-06-05T12:00:00Z"))
     }
 
     func testManualEndUndoAllowedOnlyWhenEndMarkerIsLatestCodexEvent() {
@@ -175,7 +176,10 @@ final class CodexCreditCycleTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(cycle.inactiveReason, .awaitingNextUse)
+        XCTAssertTrue(cycle.isActive)
+        XCTAssertEqual(cycle.used, 999)
+        XCTAssertEqual(cycle.start, date("2026-05-29T12:00:00Z"))
+        XCTAssertEqual(cycle.end, date("2026-06-05T12:00:00Z"))
         XCTAssertFalse(canUndo)
     }
 

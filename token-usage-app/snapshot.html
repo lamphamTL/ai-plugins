@@ -1270,14 +1270,12 @@ function computeCodexCreditCycle(now) {
   let start = null;
   let end = null;
   let used = 0;
-  let waitingForStartMarker = false;
 
   for (const ev of events) {
     if (ev.kind === 'end') {
       start = null;
       end = null;
       used = 0;
-      waitingForStartMarker = true;
       continue;
     }
 
@@ -1288,11 +1286,8 @@ function computeCodexCreditCycle(now) {
       end = new Date(start);
       end.setDate(end.getDate() + 7);
       used = entry.credits || 0;
-      waitingForStartMarker = false;
       continue;
     }
-
-    if (waitingForStartMarker) continue;
 
     if (!start || !end) {
       start = new Date(entry.ts);

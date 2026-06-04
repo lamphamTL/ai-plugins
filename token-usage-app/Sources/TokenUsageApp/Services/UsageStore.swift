@@ -310,7 +310,6 @@ final class UsageStore: ObservableObject {
         var cycleStart: Date?
         var cycleEnd: Date?
         var used = 0.0
-        var waitingForStartMarker = false
 
         for event in events {
             switch event {
@@ -318,7 +317,6 @@ final class UsageStore: ObservableObject {
                 cycleStart = nil
                 cycleEnd = nil
                 used = 0
-                waitingForStartMarker = true
 
             case .entry(let entry):
                 let isStartMarker = entry.type == UsageEntry.codexCreditCycleStartType
@@ -326,11 +324,8 @@ final class UsageStore: ObservableObject {
                     cycleStart = entry.ts
                     cycleEnd = entry.ts.addingTimeInterval(Self.codexCreditCycleDuration)
                     used = entry.credits ?? 0
-                    waitingForStartMarker = false
                     continue
                 }
-
-                guard !waitingForStartMarker else { continue }
 
                 guard let start = cycleStart, let end = cycleEnd else {
                     cycleStart = entry.ts
