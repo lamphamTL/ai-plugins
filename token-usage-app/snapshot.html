@@ -1283,9 +1283,10 @@ function computeCodexCreditCycle(now) {
     const isStartMarker = entry.type === 'codex_credit_cycle_start';
     if (isStartMarker) {
       start = new Date(entry.ts);
-      end = new Date(start);
-      end.setDate(end.getDate() + 7);
+      end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
       used = entry.credits || 0;
+      continue;
+    }
       continue;
     }
 
