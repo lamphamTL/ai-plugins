@@ -1280,22 +1280,10 @@ function computeCodexCreditCycle(now) {
     }
 
     const entry = ev.entry;
-    const isStartMarker = entry.type === 'codex_credit_cycle_start';
-    if (isStartMarker) {
+    if (!start || !end) {
       start = new Date(entry.ts);
       end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
       used = entry.credits || 0;
-      continue;
-    }
-      continue;
-    }
-
-    if (!start || !end) {
-      start = new Date(entry.ts);
-      end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      used = entry.credits || 0;
-    } else if (entry.ts >= end) {
     } else if (entry.ts >= end) {
       start = new Date(entry.ts);
       end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);

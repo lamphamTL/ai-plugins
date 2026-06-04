@@ -16,8 +16,6 @@ struct TokenBreakdown: Decodable, Hashable {
 }
 
 struct UsageEntry: Decodable, Identifiable {
-    static let codexCreditCycleStartType = "codex_credit_cycle_start"
-
     let ts: Date
     let session_id: String
     let model: String
@@ -26,11 +24,10 @@ struct UsageEntry: Decodable, Identifiable {
     let credits: Double?    // Codex only — from credit rate card
     let cost_usd: Double
     let isSubAgent: Bool
-    let type: String?        // Optional durable event marker on normal usage entries.
     var source: String = "claude"   // injected by UsageStore after decode
 
     enum CodingKeys: String, CodingKey {
-        case ts, session_id, model, project, tokens, credits, cost_usd, isSubAgent, type
+        case ts, session_id, model, project, tokens, credits, cost_usd, isSubAgent
     }
 
     init(from decoder: Decoder) throws {
@@ -43,7 +40,6 @@ struct UsageEntry: Decodable, Identifiable {
         credits = try container.decodeIfPresent(Double.self, forKey: .credits)
         cost_usd = try container.decode(Double.self, forKey: .cost_usd)
         isSubAgent = try container.decodeIfPresent(Bool.self, forKey: .isSubAgent) ?? false
-        type = try container.decodeIfPresent(String.self, forKey: .type)
     }
 
     init(
@@ -55,7 +51,6 @@ struct UsageEntry: Decodable, Identifiable {
         credits: Double?,
         cost_usd: Double,
         isSubAgent: Bool,
-        type: String? = nil,
         source: String = "claude"
     ) {
         self.ts = ts
@@ -66,7 +61,6 @@ struct UsageEntry: Decodable, Identifiable {
         self.credits = credits
         self.cost_usd = cost_usd
         self.isSubAgent = isSubAgent
-        self.type = type
         self.source = source
     }
 

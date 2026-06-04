@@ -319,14 +319,6 @@ final class UsageStore: ObservableObject {
                 used = 0
 
             case .entry(let entry):
-                let isStartMarker = entry.type == UsageEntry.codexCreditCycleStartType
-                if isStartMarker {
-                    cycleStart = entry.ts
-                    cycleEnd = entry.ts.addingTimeInterval(Self.codexCreditCycleDuration)
-                    used = entry.credits ?? 0
-                    continue
-                }
-
                 guard let start = cycleStart, let end = cycleEnd else {
                     cycleStart = entry.ts
                     cycleEnd = entry.ts.addingTimeInterval(Self.codexCreditCycleDuration)

@@ -183,33 +183,6 @@ final class CodexCreditCycleTests: XCTestCase {
         XCTAssertFalse(canUndo)
     }
 
-    func testManualEndUndoDeniedAfterLaterStartMarkerEntry() {
-        let cycle = UsageStore.computeCodexCreditCycle(
-            from: [
-                entry(at: date("2026-05-27T10:00:00Z"), credits: 10),
-                entry(at: date("2026-05-30T10:00:00Z"), credits: 4, type: UsageEntry.codexCreditCycleStartType),
-                entry(at: date("2026-05-31T10:00:00Z"), credits: 6)
-            ],
-            endMarkers: [
-                endMarker(at: date("2026-05-29T10:00:00Z"))
-            ],
-            now: date("2026-05-31T10:01:00Z")
-        )
-        let canUndo = UsageStore.canUndoCodexCreditCycleEnd(
-            entries: [
-                entry(at: date("2026-05-27T10:00:00Z"), credits: 10),
-                entry(at: date("2026-05-30T10:00:00Z"), credits: 4, type: UsageEntry.codexCreditCycleStartType),
-                entry(at: date("2026-05-31T10:00:00Z"), credits: 6)
-            ],
-            endMarkers: [
-                endMarker(at: date("2026-05-29T10:00:00Z"))
-            ]
-        )
-
-        XCTAssertTrue(cycle.isActive)
-        XCTAssertFalse(canUndo)
-    }
-
     func testMultipleEndMarkersOnlyLatestMarkerCanBeUndoneWhenLatestOverall() {
         let cycle = UsageStore.computeCodexCreditCycle(
             from: [
@@ -235,17 +208,6 @@ final class CodexCreditCycleTests: XCTestCase {
         XCTAssertTrue(canUndo)
     }
 
-    func testStartMarkerUsageDecodesAsNormalUsageEntry() throws {
-        let data = """
-        {"ts":"2026-05-30T10:00:00Z","session_id":"s1","model":"gpt-5.5","project":"ai-plugins","tokens":{"input":1,"output":2,"cache_read":3},"credits":4.5,"cost_usd":0.18,"type":"codex_credit_cycle_start"}
-        """.data(using: .utf8)!
-
-        let entry = try JSONDecoder.usageDecoder.decode(UsageEntry.self, from: data)
-
-        XCTAssertEqual(entry.type, UsageEntry.codexCreditCycleStartType)
-        XCTAssertEqual(entry.credits, 4.5)
-    }
-
     func testStandaloneEndMarkerDoesNotDecodeAsUsageEntry() throws {
         let data = """
         {"ts":"2026-05-29T10:00:00Z","type":"codex_credit_cycle_end","source":"token-usage-app"}
@@ -258,7 +220,7 @@ final class CodexCreditCycleTests: XCTestCase {
         XCTAssertEqual(marker.source, "token-usage-app")
     }
 
-    private func entry(at ts: Date, credits: Double?, type: String? = nil) -> UsageEntry {
+    private func entry(at ts: Date, credits: Double?) -> UsageEntry {
         UsageEntry(
             ts: ts,
             session_id: UUID().uuidString,
@@ -276,7 +238,6 @@ final class CodexCreditCycleTests: XCTestCase {
             credits: credits,
             cost_usd: 0,
             isSubAgent: false,
-            type: type,
             source: "codex"
         )
     }
