@@ -115,6 +115,12 @@ Credit rates per model (credits / 1M tokens, source: Codex rate card):
 
 > **Note:** The $0.04/credit rate assumes a specific plan configuration. If your subscription or weekly limit differs, the actual cost per credit will vary.
 
+#### Weekly credit tracker
+
+The Codex `Weekly credits` tracker uses a rolling usage cycle, not a calendar Monday-Sunday week. The active cycle starts at the first Codex log entry after the previous cycle expires and ends exactly 7 days later. If the app misdetects the cycle end, use the **End cycle** button in the weekly credit area to append a `codex_credit_cycle_end` marker; that marker takes precedence over gap-based detection, and the next later Codex usage entry starts a new cycle immediately. If the latest known cycle has expired and there is no later Codex usage, the tracker shows `0 / 1000` until the next Codex use starts a new cycle.
+
+> **Disclaimer:** OpenAI has not published official documentation describing exactly how the Codex weekly credit cycle resets. This reset mechanism is based on community discussion and local usage experiments, so it should be treated as a best-effort approximation rather than an official rule.
+
 ## Pricing sources
 
 | Source | Used for |

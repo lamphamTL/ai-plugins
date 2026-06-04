@@ -42,12 +42,44 @@ struct UsageEntry: Decodable, Identifiable {
         isSubAgent = try container.decodeIfPresent(Bool.self, forKey: .isSubAgent) ?? false
     }
 
+    init(
+        ts: Date,
+        session_id: String,
+        model: String,
+        project: String,
+        tokens: TokenBreakdown,
+        credits: Double?,
+        cost_usd: Double,
+        isSubAgent: Bool,
+        source: String = "claude"
+    ) {
+        self.ts = ts
+        self.session_id = session_id
+        self.model = model
+        self.project = project
+        self.tokens = tokens
+        self.credits = credits
+        self.cost_usd = cost_usd
+        self.isSubAgent = isSubAgent
+        self.source = source
+    }
+
     var id: String { "\(ts.timeIntervalSince1970)-\(session_id)-\(source)" }
 
     var projectDisplayName: String {
         guard project != "unknown" else { return "Unknown" }
         return URL(fileURLWithPath: project).lastPathComponent
     }
+}
+
+struct CodexCreditCycleMarker: Codable, Hashable, Identifiable, Sendable {
+    static let endType = "codex_credit_cycle_end"
+
+    let ts: Date
+    let type: String
+    let source: String?
+
+    var id: String { "\(ts.timeIntervalSince1970)-\(type)-\(source ?? "")" }
 }
 
 extension JSONDecoder {

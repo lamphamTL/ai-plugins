@@ -60,6 +60,11 @@ struct ContentView: View {
     @State private var pendingBarCount: Int? = nil
     @State private var resizeWorkItem: DispatchWorkItem? = nil
     @State private var didFirstRender = false
+    @State private var isConfirmingCodexCycleEnd = false
+    @State private var codexCycleEndWriteError: String?
+    @State private var isShowingCodexCycleEndWriteError = false
+    @State private var codexCycleEndUndoError: String?
+    @State private var isShowingCodexCycleEndUndoError = false
 
     private let sources = [("All", String?.none), ("Claude", "claude"), ("Codex", "codex")]
 
@@ -134,6 +139,74 @@ struct ContentView: View {
     private func resolvedBarCount(width: CGFloat) -> Int {
         let plotWidth = max(width - 28 - 40, 100)
         return max(3, Int(plotWidth / Self.targetBarPx))
+    }
+
+    @ViewBuilder
+    private func cycleEndActionLabel(cycleIsActive: Bool) -> some View {
+        if store.isWritingCodexCycleEndMarker {
+            ProgressView()
+                .controlSize(.mini)
+        } else if cycleIsActive {
+            Button {
+                isConfirmingCodexCycleEnd = true
+            } label: {
+                Text("End cycle")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Color.accentColor.opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Mark current Codex cycle as ended")
+        } else if store.canUndoCodexCreditCycleEnd {
+            Button {
+                Task {
+                    do {
+                        try await store.removeLastCodexCreditCycleEndMarker()
+                    } catch {
+                        codexCycleEndUndoError = error.localizedDescription
+                        isShowingCodexCycleEndUndoError = true
+                    }
+                }
+            } label: {
+                HStack(spacing: 3) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("Undo end")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(
+                    Color.primary.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Remove the last cycle-end marker")
+        }
+    }
+
+    private func codexCycleLabel(_ cycle: CodexCreditCycle) -> String {
+        switch cycle.inactiveReason {
+        case .manuallyEnded:
+            return "Cycle manually ended"
+        default:
+            return "Weekly credit"
+        }
+    }
+
+    private func codexCycleRangeText(_ cycle: CodexCreditCycle) -> String {
+        guard let start = cycle.start, let end = cycle.end else {
+            return "Starts on next Codex use"
+        }
+        let format = Date.FormatStyle.dateTime.month(.abbreviated).day().hour().minute()
+        return "\(start.formatted(format)) - \(end.formatted(format))"
     }
 
     var body: some View {
@@ -331,30 +404,41 @@ struct ContentView: View {
 
                 // ── Weekly credit tracker (Codex only) ───────────────────
                 if selectedSource == "codex" {
-                    let used   = store.weeklyCodexCredits
+                    let cycle  = store.codexCreditCycle
+                    let used   = cycle.used
                     let limit  = 1000.0
                     let pct    = min(used / limit, 1.0)
                     let color: Color = pct >= 0.9 ? .red : pct >= 0.7 ? .yellow : .green
                     VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Text("Weekly credits")
+                        HStack(spacing: 8) {
+                            Text(codexCycleLabel(cycle))
                                 .font(.system(size: 10, weight: .medium, design: .rounded))
                                 .foregroundStyle(.secondary)
+                            cycleEndActionLabel(cycleIsActive: cycle.isActive)
                             Spacer()
-                            Text(String(format: "%.1f / 1000", used))
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                .foregroundStyle(color)
-                        }
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(.primary.opacity(0.08))
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(color.opacity(0.8))
-                                    .frame(width: geo.size.width * pct)
+                            if cycle.isActive {
+                                Text(String(format: "%.1f / 1000", used))
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(color)
                             }
                         }
-                        .frame(height: 4)
+                        Text(codexCycleRangeText(cycle))
+                            .font(.system(size: 9, weight: .regular, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .foregroundStyle(.primary.opacity(0.72))
+                        if cycle.isActive {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(.primary.opacity(0.08))
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(color.opacity(0.8))
+                                        .frame(width: geo.size.width * pct)
+                                }
+                            }
+                            .frame(height: 4)
+                        }
                     }
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
@@ -431,6 +515,31 @@ struct ContentView: View {
         .onChange(of: barCount)        { _, _ in chartData = computeChartData() }
         .onChange(of: store.entries.count) { _, _ in chartData = computeChartData() }
         .modifier(RootSizeModifier(mode: displayMode))
+        .alert("End Codex cycle?", isPresented: $isConfirmingCodexCycleEnd) {
+            Button("Cancel", role: .cancel) {}
+            Button("End cycle", role: .destructive) {
+                Task {
+                    do {
+                        try await store.appendCodexCreditCycleEndMarker()
+                    } catch {
+                        codexCycleEndWriteError = error.localizedDescription
+                        isShowingCodexCycleEndWriteError = true
+                    }
+                }
+            }
+        } message: {
+            Text("Mark the current Codex cycle as ended now?")
+        }
+        .alert("Could not mark cycle end", isPresented: $isShowingCodexCycleEndWriteError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(codexCycleEndWriteError ?? "Unknown error")
+        }
+        .alert("Could not undo cycle end", isPresented: $isShowingCodexCycleEndUndoError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(codexCycleEndUndoError ?? "Unknown error")
+        }
     }
 
     private func updateBarCount(width: CGFloat) {
