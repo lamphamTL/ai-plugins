@@ -216,8 +216,16 @@ body {
 
 .credits-bar-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 4px;
+}
+
+.credits-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 
 .credits-label {
@@ -225,6 +233,62 @@ body {
   font-weight: 500;
   color: rgba(255,255,255,0.45);
 }
+
+.credits-end-btn {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', sans-serif;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(10,132,255,0.18);
+  border: none;
+  color: #0A84FF;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.credits-end-btn:hover {
+  background: rgba(10,132,255,0.28);
+}
+
+.credits-end-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.credits-end-btn.undo {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.72);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.credits-end-btn.undo:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.credits-end-btn.writing {
+  color: transparent !important;
+  background: rgba(255,255,255,0.05);
+  position: relative;
+}
+
+.credits-end-btn.writing::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.22);
+  border-top-color: rgba(255,255,255,0.72);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .credits-value {
   font-size: 10px;
@@ -564,7 +628,17 @@ body {
       <!-- Weekly credits bar (Codex only) -->
       <div class="credits-bar-wrap" id="creditsBar">
         <div class="credits-bar-header">
-          <span class="credits-label">Weekly credits</span>
+          <span class="credits-title">
+            <span class="credits-label" id="creditsLabel">Weekly credit</span>
+            <button class="credits-end-btn" id="cycleEndBtn" title="Mark current Codex cycle as ended" onclick="markCodexCycleEnd()">End cycle</button>
+            <button class="credits-end-btn undo" id="cycleEndUndoBtn" title="Remove the last cycle-end marker" onclick="undoCodexCycleEnd()" style="display:none">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>
+              </svg>
+              Undo end
+            </button>
+          </span>
           <span class="credits-value" id="creditsValue">620.0 / 1000</span>
         </div>
         <div class="credits-cycle" id="creditsCycle">Starts on next Codex use</div>
@@ -674,7 +748,7 @@ function mulberry32(seed) {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const state = {
-  source: null,
+  source: 'codex',
   kind: 'day',
   scrollOffset: 0,
   project: null,
@@ -684,7 +758,8 @@ const state = {
   selectedBucket: null,
   seed: 42,
   chartModeMenuOpen: false,
-  filterMenuOpen: false
+  filterMenuOpen: false,
+  codexEndMarkers: []
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1158,44 +1233,164 @@ function renderFooter(buckets, filtered) {
 }
 
 // ─── Credits bar ──────────────────────────────────────────────────────────────
-function weeklyCodexCredits() {
-  const today = new Date(); today.setHours(23, 59, 59, 999);
-  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); sevenDaysAgo.setHours(0,0,0,0);
-  return rawData
-    .filter(e => e.source === 'codex' && e.ts >= sevenDaysAgo && e.ts <= today)
-    .reduce((s, e) => s + (e.credits || 0), 0);
+function previewNow() {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return today;
 }
 
-function codexCycleRangeText() {
-  const today = new Date(); today.setHours(23, 59, 59, 999);
-  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); sevenDaysAgo.setHours(0,0,0,0);
-  const events = rawData
-    .filter(e => e.source === 'codex' && e.ts >= sevenDaysAgo && e.ts <= today)
-    .sort((a, b) => a.ts - b.ts);
-  if (events.length === 0) return 'Starts on next Codex use';
-  const start = new Date(events[0].ts);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
+function orderedCodexCreditCycleEvents() {
+  const usageEvents = rawData
+    .filter(e => e.source === 'codex')
+    .map(e => ({ kind: 'entry', ts: e.ts, entry: e, sortRank: 0 }));
+  const markerEvents = state.codexEndMarkers
+    .map(m => ({ kind: 'end', ts: m.ts, marker: m, sortRank: 1 }));
+
+  return usageEvents.concat(markerEvents).sort((a, b) => {
+    if (a.ts.getTime() === b.ts.getTime()) return a.sortRank - b.sortRank;
+    return a.ts - b.ts;
+  });
+}
+
+function latestCodexCreditCycleEvent() {
+  const events = orderedCodexCreditCycleEvents();
+  return events.length ? events[events.length - 1] : null;
+}
+
+function nextCodexEndMarkerTs() {
+  const latestEvent = latestCodexCreditCycleEvent();
+  const ts = latestEvent ? new Date(latestEvent.ts) : new Date();
+  ts.setSeconds(ts.getSeconds() + 1);
+  return ts;
+}
+
+function computeCodexCreditCycle(now) {
+  const events = orderedCodexCreditCycleEvents();
+
+  let start = null;
+  let end = null;
+  let used = 0;
+  let waitingForStartMarker = false;
+
+  for (const ev of events) {
+    if (ev.kind === 'end') {
+      start = null;
+      end = null;
+      used = 0;
+      waitingForStartMarker = true;
+      continue;
+    }
+
+    const entry = ev.entry;
+    const isStartMarker = entry.type === 'codex_credit_cycle_start';
+    if (isStartMarker) {
+      start = new Date(entry.ts);
+      end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      used = entry.credits || 0;
+      waitingForStartMarker = false;
+      continue;
+    }
+
+    if (waitingForStartMarker) continue;
+
+    if (!start || !end) {
+      start = new Date(entry.ts);
+      end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      used = entry.credits || 0;
+    } else if (entry.ts >= end) {
+      start = new Date(entry.ts);
+      end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      used = entry.credits || 0;
+    } else if (entry.ts >= start) {
+      used += entry.credits || 0;
+    }
+  }
+
+  if (!start || !end || now >= end) {
+    const latestEvent = latestCodexCreditCycleEvent();
+    const inactiveReason = latestEvent && latestEvent.kind === 'end'
+      ? 'manuallyEnded'
+      : 'awaitingNextUse';
+    return { active: false, used: 0, start: null, end: null, inactiveReason };
+  }
+  return { active: true, used, start, end, inactiveReason: null };
+}
+
+function codexCycleRangeText(cycle) {
+  if (!cycle.active) return 'Starts on next Codex use';
   const opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
-  return start.toLocaleString('en-US', opts) + ' - ' + end.toLocaleString('en-US', opts);
+  return cycle.start.toLocaleString('en-US', opts) + ' - ' + cycle.end.toLocaleString('en-US', opts);
+}
+
+function codexCycleLabelText(cycle) {
+  return cycle.inactiveReason === 'manuallyEnded'
+    ? 'Cycle manually ended'
+    : 'Weekly credit';
+}
+
+function canUndoCodexCycleEnd() {
+  const latestEvent = latestCodexCreditCycleEvent();
+  return !!latestEvent && latestEvent.kind === 'end';
 }
 
 function renderCreditsBar() {
   const wrap = document.getElementById('creditsBar');
   if (state.source === 'codex') {
     wrap.classList.add('visible');
-    const cr = weeklyCodexCredits();
+    const cycle = computeCodexCreditCycle(previewNow());
+    const cr = cycle.used;
     const pct = cr / CREDITS_LIMIT;
+    const fill = document.getElementById('creditsFill');
+    const track = document.querySelector('.credits-track');
+    const label = document.getElementById('creditsLabel');
+    const value = document.getElementById('creditsValue');
+    const endBtn = document.getElementById('cycleEndBtn');
+    const undoBtn = document.getElementById('cycleEndUndoBtn');
+
+    const showEnd = cycle.active;
+    const showUndo = !cycle.active && canUndoCodexCycleEnd();
+
+    endBtn.style.display = showEnd ? '' : 'none';
+    endBtn.classList.remove('writing');
+    endBtn.disabled = false;
+    undoBtn.style.display = showUndo ? 'inline-flex' : 'none';
+    label.textContent = codexCycleLabelText(cycle);
+
+    track.style.display = cycle.active ? '' : 'none';
+    value.style.display = cycle.active ? '' : 'none';
     document.getElementById('creditsFill').style.width = Math.min(pct * 100, 100) + '%';
     // yellow = 70-89%, green < 70%, red >= 90%
     const col = pct >= 0.9 ? '#ff453a' : pct >= 0.7 ? '#ffd60a' : '#34c759';
-    document.getElementById('creditsFill').style.background = col;
-    document.getElementById('creditsValue').style.color = col;
-    document.getElementById('creditsValue').textContent = cr.toFixed(1) + ' / ' + CREDITS_LIMIT;
-    document.getElementById('creditsCycle').textContent = codexCycleRangeText();
+    fill.style.background = col;
+    value.style.color = col;
+    value.textContent = cr.toFixed(1) + ' / ' + CREDITS_LIMIT;
+    document.getElementById('creditsCycle').textContent = codexCycleRangeText(cycle);
   } else {
     wrap.classList.remove('visible');
   }
+}
+
+function markCodexCycleEnd() {
+  if (!window.confirm('Mark the current Codex cycle as ended now?')) return;
+  state.codexEndMarkers.push({
+    ts: nextCodexEndMarkerTs(),
+    type: 'codex_credit_cycle_end',
+    source: 'token-usage-app'
+  });
+  render();
+}
+
+function undoCodexCycleEnd() {
+  if (state.codexEndMarkers.length === 0) return;
+  let latestIdx = 0;
+  for (let i = 1; i < state.codexEndMarkers.length; i++) {
+    if (state.codexEndMarkers[i].ts > state.codexEndMarkers[latestIdx].ts) latestIdx = i;
+  }
+  state.codexEndMarkers.splice(latestIdx, 1);
+  render();
 }
 
 // ─── Source pills ─────────────────────────────────────────────────────────────

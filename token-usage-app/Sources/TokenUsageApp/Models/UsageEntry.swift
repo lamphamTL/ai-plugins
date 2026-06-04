@@ -11,6 +11,8 @@ struct TokenBreakdown: Decodable, Hashable {
 }
 
 struct UsageEntry: Decodable, Identifiable {
+    static let codexCreditCycleStartType = "codex_credit_cycle_start"
+
     let ts: Date
     let session_id: String
     let model: String
@@ -19,10 +21,11 @@ struct UsageEntry: Decodable, Identifiable {
     let credits: Double?    // Codex only — from credit rate card
     let cost_usd: Double
     let isSubAgent: Bool
+    let type: String?        // Optional durable event marker on normal usage entries.
     var source: String = "claude"   // injected by UsageStore after decode
 
     enum CodingKeys: String, CodingKey {
-        case ts, session_id, model, project, tokens, credits, cost_usd, isSubAgent
+        case ts, session_id, model, project, tokens, credits, cost_usd, isSubAgent, type
     }
 
     init(from decoder: Decoder) throws {
@@ -35,6 +38,31 @@ struct UsageEntry: Decodable, Identifiable {
         credits = try container.decodeIfPresent(Double.self, forKey: .credits)
         cost_usd = try container.decode(Double.self, forKey: .cost_usd)
         isSubAgent = try container.decodeIfPresent(Bool.self, forKey: .isSubAgent) ?? false
+        type = try container.decodeIfPresent(String.self, forKey: .type)
+    }
+
+    init(
+        ts: Date,
+        session_id: String,
+        model: String,
+        project: String,
+        tokens: TokenBreakdown,
+        credits: Double?,
+        cost_usd: Double,
+        isSubAgent: Bool,
+        type: String? = nil,
+        source: String = "claude"
+    ) {
+        self.ts = ts
+        self.session_id = session_id
+        self.model = model
+        self.project = project
+        self.tokens = tokens
+        self.credits = credits
+        self.cost_usd = cost_usd
+        self.isSubAgent = isSubAgent
+        self.type = type
+        self.source = source
     }
 
     var id: String { "\(ts.timeIntervalSince1970)-\(session_id)-\(source)" }
@@ -43,6 +71,16 @@ struct UsageEntry: Decodable, Identifiable {
         guard project != "unknown" else { return "Unknown" }
         return URL(fileURLWithPath: project).lastPathComponent
     }
+}
+
+struct CodexCreditCycleMarker: Codable, Hashable, Identifiable, Sendable {
+    static let endType = "codex_credit_cycle_end"
+
+    let ts: Date
+    let type: String
+    let source: String?
+
+    var id: String { "\(ts.timeIntervalSince1970)-\(type)-\(source ?? "")" }
 }
 
 extension JSONDecoder {
