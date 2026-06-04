@@ -574,8 +574,7 @@ struct ContentView: View {
         let presentAnchored = TimeWindow.initialScrollDate(for: kind, count: count)
         guard let firstEntry = store.entries.first else { return presentAnchored }
 
-        var cal = Calendar.current
-        if kind == .week { cal.firstWeekday = 2 }
+        let cal = Calendar.cycleAnchored
         let comp = kind.bucketComponent
 
         guard let dataStart = cal.dateInterval(of: comp, for: firstEntry.ts)?.start else { return presentAnchored }
@@ -636,8 +635,7 @@ struct ContentView: View {
     private var visibleEntries: [UsageEntry] {
         let entries = filteredEntries
         guard !entries.isEmpty else { return [] }
-        var cal = Calendar.current
-        if selectedKind == .week { cal.firstWeekday = 2 }
+        let cal = Calendar.cycleAnchored
         let end = cal.date(byAdding: selectedKind.bucketComponent,
                            value: barCount,
                            to: scrollDate) ?? scrollDate.addingTimeInterval(visibleDuration)
@@ -661,7 +659,7 @@ struct ContentView: View {
         let visible = visibleEntries
         guard !visible.isEmpty else { return .empty }
 
-        let calendar = Calendar.current
+        let calendar = Calendar.cycleAnchored
         let component = selectedKind.bucketComponent
         let multiSource = Set(visible.map(\.source)).count > 1
 
@@ -688,7 +686,7 @@ struct ContentView: View {
             if let cr = entry.credits { bucketCredits[bucket, default: 0] += cr }
             let t = entry.tokens
             bucketCacheRead[bucket,  default: 0] += t.cache_read
-            bucketCacheTotal[bucket, default: 0] += t.cache_read + (t.cache_write ?? 0) + t.input
+            bucketCacheTotal[bucket, default: 0] += t.cache_read + t.cache_write_total + t.input
         }
 
         var points: [ChartPoint] = []
