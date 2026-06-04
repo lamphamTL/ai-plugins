@@ -264,7 +264,15 @@ final class CodexCreditCycleTests: XCTestCase {
             session_id: UUID().uuidString,
             model: "gpt-5.5",
             project: "ai-plugins",
-            tokens: TokenBreakdown(input: 0, output: 0, cache_write: nil, cache_read: 0, reasoning: nil),
+            tokens: TokenBreakdown(
+                input: 0,
+                output: 0,
+                cache_write: nil,
+                cache_write_5m: nil,
+                cache_write_1h: nil,
+                cache_read: 0,
+                reasoning: nil
+            ),
             credits: credits,
             cost_usd: 0,
             isSubAgent: false,
