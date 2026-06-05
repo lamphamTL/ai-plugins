@@ -845,8 +845,29 @@ function isoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function usesUTCDateRange() {
+  return state.source === 'codex';
+}
+
+function displayDateOptions(opts) {
+  return usesUTCDateRange() ? { ...opts, timeZone: 'UTC' } : opts;
+}
+
 function bucketStart(date, kind) {
   const d = new Date(date);
+  if (usesUTCDateRange()) {
+    if (kind === 'day') {
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    } else if (kind === 'week') {
+      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const dow = start.getUTCDay(); // 0=Sun
+      const diff = (dow === 0) ? -6 : 1 - dow;
+      start.setUTCDate(start.getUTCDate() + diff);
+      return start;
+    } else {
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    }
+  }
   if (kind === 'day') {
     d.setHours(0, 0, 0, 0);
     return d;
@@ -866,12 +887,22 @@ function bucketStart(date, kind) {
 
 function addBuckets(date, kind, n) {
   const d = new Date(date);
-  if (kind === 'day') {
-    d.setDate(d.getDate() + n);
-  } else if (kind === 'week') {
-    d.setDate(d.getDate() + n * 7);
+  if (usesUTCDateRange()) {
+    if (kind === 'day') {
+      d.setUTCDate(d.getUTCDate() + n);
+    } else if (kind === 'week') {
+      d.setUTCDate(d.getUTCDate() + n * 7);
+    } else {
+      d.setUTCMonth(d.getUTCMonth() + n);
+    }
   } else {
-    d.setMonth(d.getMonth() + n);
+    if (kind === 'day') {
+      d.setDate(d.getDate() + n);
+    } else if (kind === 'week') {
+      d.setDate(d.getDate() + n * 7);
+    } else {
+      d.setMonth(d.getMonth() + n);
+    }
   }
   return d;
 }
@@ -883,7 +914,9 @@ function bucketCount(kind) {
 // Current window: buckets[0] is oldest, buckets[n-1] is newest
 function getWindowBuckets() {
   const n = bucketCount(state.kind);
-  const today = new Date(); today.setHours(0,0,0,0);
+  const today = new Date();
+  if (usesUTCDateRange()) today.setUTCHours(0,0,0,0);
+  else today.setHours(0,0,0,0);
   const todayBucket = bucketStart(today, state.kind);
   // scrollOffset <= 0: 0 = present, -1 = one step back, etc.
   // rightmost visible bucket is todayBucket + scrollOffset
@@ -977,18 +1010,20 @@ function fmtEvents(n) { return n + ' event' + (n === 1 ? '' : 's'); }
 
 function bucketLabel(bucket, kind) {
   const d = bucket.date;
-  const today = new Date(); today.setHours(0,0,0,0);
+  const today = new Date();
+  if (usesUTCDateRange()) today.setUTCHours(0,0,0,0);
+  else today.setHours(0,0,0,0);
   if (kind === 'day') {
-    if (d.getTime() === today.getTime()) return { main: 'Today', today: true };
-    const wd = d.toLocaleDateString('en-US', { weekday: 'short' });
-    const dy = d.toLocaleDateString('en-US', { day: 'numeric' });
+    if (bucketStart(d, 'day').getTime() === bucketStart(today, 'day').getTime()) return { main: 'Today', today: true };
+    const wd = d.toLocaleDateString('en-US', displayDateOptions({ weekday: 'short' }));
+    const dy = d.toLocaleDateString('en-US', displayDateOptions({ day: 'numeric' }));
     return { main: wd, sub: dy };
   } else if (kind === 'week') {
-    const mo = d.toLocaleDateString('en-US', { month: 'short' });
-    const dy = d.toLocaleDateString('en-US', { day: 'numeric' });
+    const mo = d.toLocaleDateString('en-US', displayDateOptions({ month: 'short' }));
+    const dy = d.toLocaleDateString('en-US', displayDateOptions({ day: 'numeric' }));
     return { main: mo, sub: dy };
   } else {
-    return { main: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) };
+    return { main: d.toLocaleDateString('en-US', displayDateOptions({ month: 'short', year: '2-digit' })) };
   }
 }
 
@@ -999,9 +1034,9 @@ function navBarLabel(buckets, kind) {
   const fmtOpts = kind === 'month'
     ? { month: 'short', year: 'numeric' }
     : { month: 'short', day: 'numeric' };
-  const s = first.toLocaleDateString('en-US', fmtOpts);
-  const e = last.toLocaleDateString('en-US', fmtOpts);
-  return s + ' – ' + e;
+  const s = first.toLocaleDateString('en-US', displayDateOptions(fmtOpts));
+  const e = last.toLocaleDateString('en-US', displayDateOptions(fmtOpts));
+  return s + ' – ' + e + (usesUTCDateRange() ? ' UTC' : '');
 }
 
 // ─── SVG chart ────────────────────────────────────────────────────────────────
@@ -1305,8 +1340,8 @@ function computeCodexCreditCycle(now) {
 
 function codexCycleRangeText(cycle) {
   if (!cycle.active) return 'Starts on next Codex use';
-  const opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
-  return cycle.start.toLocaleString('en-US', opts) + ' - ' + cycle.end.toLocaleString('en-US', opts);
+  const opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' };
+  return cycle.start.toLocaleString('en-US', opts) + ' - ' + cycle.end.toLocaleString('en-US', opts) + ' UTC';
 }
 
 function codexCycleLabelText(cycle) {

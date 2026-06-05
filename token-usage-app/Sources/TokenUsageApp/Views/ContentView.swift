@@ -205,8 +205,14 @@ struct ContentView: View {
         guard let start = cycle.start, let end = cycle.end else {
             return "Starts on next Codex use"
         }
-        let format = Date.FormatStyle.dateTime.month(.abbreviated).day().hour().minute()
-        return "\(start.formatted(format)) - \(end.formatted(format))"
+        let calendar = Calendar.cycleAnchored
+        let startText = DateDisplayFormatting.monthDayTime(start, calendar: calendar, timeZone: calendar.timeZone)
+        let endText = DateDisplayFormatting.monthDayTime(end, calendar: calendar, timeZone: calendar.timeZone)
+        return "\(startText) - \(endText) UTC"
+    }
+
+    private var useCodexUTCDateRange: Bool {
+        selectedSource == "codex"
     }
 
     var body: some View {
@@ -451,6 +457,7 @@ struct ContentView: View {
                     barCount: barCount,
                     visibleDuration: visibleDuration,
                     minDate: store.entries.first?.ts ?? Date(),
+                    useUTCDateRange: useCodexUTCDateRange,
                     onResetToPresent: {
                         scrollDate = centeredScrollDate(for: selectedKind, count: barCount)
                     }
@@ -468,7 +475,8 @@ struct ContentView: View {
                         scrollDateBinding: $scrollDate,
                         projectColors: store.projectColors,
                         showCredits: selectedSource == "codex",
-                        chartMode: chartMode
+                        chartMode: chartMode,
+                        useUTCDateRange: useCodexUTCDateRange
                     )
                     .padding(.horizontal, 14)
                     .padding(.bottom, 4)
