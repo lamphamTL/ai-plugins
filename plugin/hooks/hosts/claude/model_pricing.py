@@ -10,6 +10,7 @@ COMPACTION_DIR = Path.home() / ".claude/compaction"
 # rw_1h = 1h-cache write rate (2x base input).
 # Source: https://platform.claude.com/docs/en/about-claude/pricing
 RATES = {
+    "claude-opus-4-8":   {"ri": 5,    "ro": 25, "rw_5m": 6.25,  "rw_1h": 10,   "rc": 0.50},
     "claude-opus-4-7":   {"ri": 5,    "ro": 25, "rw_5m": 6.25,  "rw_1h": 10,   "rc": 0.50},
     "claude-opus-4-6":   {"ri": 5,    "ro": 25, "rw_5m": 6.25,  "rw_1h": 10,   "rc": 0.50},
     "claude-opus-4-5":   {"ri": 5,    "ro": 25, "rw_5m": 6.25,  "rw_1h": 10,   "rc": 0.50},
