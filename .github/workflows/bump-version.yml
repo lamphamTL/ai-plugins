@@ -13,13 +13,14 @@ on:
           - minor
           - major
       branch:
-        description: 'Target branch to commit the bump to'
+        description: 'Target branch for the bump PR'
         required: false
         default: 'develop'
         type: string
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   bump:
@@ -38,16 +39,18 @@ jobs:
           CURRENT=$(tr -d '[:space:]' < VERSION)
           echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "branch=bump-version/v$NEW" >> "$GITHUB_OUTPUT"
           echo "Bumping $CURRENT → $NEW"
 
       - name: Apply new version
         run: .github/workflows/scripts/apply-version.sh "${{ steps.ver.outputs.new }}"
 
-      - name: Commit and push
+      - name: Commit and push branch
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ steps.ver.outputs.branch }}"
           git add VERSION \
             plugin/.claude-plugin/plugin.json \
             plugin/.codex-plugin/plugin.json
@@ -56,4 +59,21 @@ jobs:
             exit 1
           fi
           git commit -m "Bump version v${{ steps.ver.outputs.new }}"
-          git push origin HEAD:${{ inputs.branch }}
+          git push --force-with-lease origin "${{ steps.ver.outputs.branch }}"
+
+      - name: Create pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TITLE="Bump version v${{ steps.ver.outputs.new }}"
+          BODY="Automated version bump: \`${{ steps.ver.outputs.current }}\` → \`${{ steps.ver.outputs.new }}\` (${{ inputs.bump }})."
+          if gh pr view "${{ steps.ver.outputs.branch }}" --json number >/dev/null 2>&1; then
+            gh pr edit "${{ steps.ver.outputs.branch }}" --title "$TITLE" --body "$BODY" --base "${{ inputs.branch }}"
+          else
+            gh pr create \
+              --base "${{ inputs.branch }}" \
+              --head "${{ steps.ver.outputs.branch }}" \
+              --title "$TITLE" \
+              --body "$BODY"
+          fi
