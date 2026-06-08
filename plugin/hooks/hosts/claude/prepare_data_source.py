@@ -1,7 +1,10 @@
 import json
+import time
 from pathlib import Path
 
 from .model_pricing import COMPACTION_DIR, STATE_JSON, USAGE_DIR
+
+RETRY_DELAYS = (0.1, 0.15, 0.2, 0.25)
 
 
 def _derive_project(cwd: str) -> str:
@@ -68,6 +71,16 @@ def _resolve_subagent_transcript(transcript: str, agent_id: str):
     return None
 
 
+def _resolve_subagent_transcript_with_retry(transcript: str, agent_id: str):
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        found = _resolve_subagent_transcript(transcript, agent_id)
+        if found:
+            return found
+        if attempt < len(RETRY_DELAYS):
+            time.sleep(RETRY_DELAYS[attempt])
+    return None
+
+
 def _read_transcript_totals(transcript: str):
     total_input = total_output = total_cache_write_5m = total_cache_write_1h = total_cache_read = 0
     transcript_model = None
@@ -96,6 +109,33 @@ def _read_transcript_totals(transcript: str):
     return total_input, total_output, total_cache_write_5m, total_cache_write_1h, total_cache_read, transcript_model
 
 
+def _compute_deltas(totals, prev: dict):
+    total_input, total_output, total_cache_write_5m, total_cache_write_1h, total_cache_read, _ = totals
+
+    prev_5m = prev.get("cache_write_5m") if "cache_write_5m" in prev else prev.get("cache_write", 0)
+    prev_1h = prev.get("cache_write_1h", 0)
+
+    return {
+        "input":          total_input - prev.get("input", 0),
+        "output":         total_output - prev.get("output", 0),
+        "cache_write_5m": total_cache_write_5m - prev_5m,
+        "cache_write_1h": total_cache_write_1h - prev_1h,
+        "cache_read":     total_cache_read - prev.get("cache_read", 0),
+    }
+
+
+def _read_transcript_totals_with_retry(transcript: str, prev: dict):
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        if transcript and Path(transcript).exists():
+            totals = _read_transcript_totals(transcript)
+            deltas = _compute_deltas(totals, prev)
+            if deltas["input"] != 0 or deltas["output"] != 0:
+                return totals, deltas
+        if attempt < len(RETRY_DELAYS):
+            time.sleep(RETRY_DELAYS[attempt])
+    return None
+
+
 def prepare_data_source(stdin_data: dict):
     session_id = stdin_data.get("session_id") or "unknown"
     transcript = stdin_data.get("transcript_path") or ""
@@ -113,17 +153,11 @@ def prepare_data_source(stdin_data: dict):
     _record_compaction(session_id, ctx_tokens)
 
     if agent_id and transcript:
-        found = _resolve_subagent_transcript(transcript, agent_id)
+        found = _resolve_subagent_transcript_with_retry(transcript, agent_id)
         if found:
             transcript = found
         else:
             return None
-
-    if not transcript or not Path(transcript).exists():
-        return None
-
-    total_input, total_output, total_cache_write_5m, total_cache_write_1h, total_cache_read, transcript_model = \
-        _read_transcript_totals(transcript)
 
     USAGE_DIR.mkdir(parents=True, exist_ok=True)
     state_key = f"{session_id}:{agent_id}" if agent_id else session_id
@@ -135,20 +169,12 @@ def prepare_data_source(stdin_data: dict):
         except Exception:
             pass
 
-    delta_input         = total_input         - prev.get("input", 0)
-    delta_output        = total_output        - prev.get("output", 0)
-    delta_cache_read    = total_cache_read    - prev.get("cache_read", 0)
-
-    # Baseline for cache_write_5m: use new key if present, else fall back to legacy
-    # cache_write key (one-release compat window so in-flight sessions don't double-count).
-    prev_5m = prev.get("cache_write_5m") if "cache_write_5m" in prev else prev.get("cache_write", 0)
-    prev_1h = prev.get("cache_write_1h", 0)
-
-    delta_cache_write_5m = total_cache_write_5m - prev_5m
-    delta_cache_write_1h = total_cache_write_1h - prev_1h
-
-    if delta_input == 0 and delta_output == 0:
+    read_result = _read_transcript_totals_with_retry(transcript, prev)
+    if read_result is None:
         return None
+
+    totals, deltas = read_result
+    total_input, total_output, total_cache_write_5m, total_cache_write_1h, total_cache_read, transcript_model = totals
 
     state[state_key] = {
         "input":          total_input,
@@ -166,11 +192,11 @@ def prepare_data_source(stdin_data: dict):
         "agent_id":   agent_id,
         "agent_type": agent_type,
         "deltas": {
-            "input":          delta_input,
-            "output":         delta_output,
-            "cache_write_5m": delta_cache_write_5m,
-            "cache_write_1h": delta_cache_write_1h,
-            "cache_read":     delta_cache_read,
+            "input":          deltas["input"],
+            "output":         deltas["output"],
+            "cache_write_5m": deltas["cache_write_5m"],
+            "cache_write_1h": deltas["cache_write_1h"],
+            "cache_read":     deltas["cache_read"],
         },
         "_prev": prev,
     }
