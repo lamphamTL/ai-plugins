@@ -1,12 +1,16 @@
 import json
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 
 from .model_pricing import STATE_JSON, USAGE_DIR
 
+_STOP_HOOK_FLUSH_RETRY_DELAYS = (0.1, 0.15, 0.2, 0.25)
+
 
 def _derive_project(cwd: str) -> str:
+    """Return project name from Codex cwd, ignoring system and cache paths."""
     if not cwd:
         return "unknown"
     cwd = cwd.rstrip("/")
@@ -28,6 +32,7 @@ def _derive_project(cwd: str) -> str:
 
 
 def _find_transcript(session_id: str):
+    """Find today's Codex session transcript containing the session id."""
     today_dir = Path.home() / ".codex/sessions" / datetime.now().strftime("%Y/%m/%d")
     if not today_dir.is_dir():
         return None
@@ -41,6 +46,7 @@ def _find_transcript(session_id: str):
 
 
 def _read_last_token_count(transcript: str):
+    """Read the most recent cumulative token_count event from a transcript."""
     last_count = None
     try:
         with open(transcript, encoding="utf-8") as f:
@@ -57,64 +63,71 @@ def _read_last_token_count(transcript: str):
     return last_count
 
 
+def _resolve_transcript(provided_transcript: str, session_id: str) -> str:
+    """Use provided transcript when present, otherwise search by session id."""
+    if provided_transcript and Path(provided_transcript).exists():
+        return provided_transcript
+    return _find_transcript(session_id) or ""
+
+
 def prepare_data_source(stdin_data: dict):
+    """Build normalized Codex token usage data from stop-hook stdin."""
     session_id = stdin_data.get("session_id") or "unknown"
-    transcript = stdin_data.get("transcript_path") or ""
+    provided_transcript = stdin_data.get("transcript_path") or ""
     model      = stdin_data.get("model") or "unknown"
     cwd        = stdin_data.get("cwd") or os.environ.get("PWD") or ""
 
     project = _derive_project(cwd)
 
-    if not transcript or not Path(transcript).exists():
-        transcript = _find_transcript(session_id) or ""
-    if not transcript or not Path(transcript).exists():
-        return None
+    for attempt in range(len(_STOP_HOOK_FLUSH_RETRY_DELAYS) + 1):
+        transcript = _resolve_transcript(provided_transcript, session_id)
+        if transcript and Path(transcript).exists():
+            last_count = _read_last_token_count(transcript)
+            if last_count:
+                total_input     = last_count.get("input_tokens", 0)
+                total_output    = last_count.get("output_tokens", 0)
+                total_cached    = last_count.get("cached_input_tokens", 0)
+                total_reasoning = last_count.get("reasoning_output_tokens", 0)
+                total_fresh     = total_input - total_cached
 
-    last_count = _read_last_token_count(transcript)
-    if not last_count:
-        return None
+                USAGE_DIR.mkdir(parents=True, exist_ok=True)
+                state, prev = {}, {}
+                if STATE_JSON.exists():
+                    try:
+                        state = json.loads(STATE_JSON.read_text())
+                        prev  = state.get(session_id) or {}
+                    except Exception:
+                        pass
 
-    total_input     = last_count.get("input_tokens", 0)
-    total_output    = last_count.get("output_tokens", 0)
-    total_cached    = last_count.get("cached_input_tokens", 0)
-    total_reasoning = last_count.get("reasoning_output_tokens", 0)
-    total_fresh     = total_input - total_cached
+                prev_fresh        = prev.get("input", 0) - prev.get("cached", 0)
+                delta_fresh_input = total_fresh     - prev_fresh
+                delta_output      = total_output    - prev.get("output", 0)
+                delta_cached      = total_cached    - prev.get("cached", 0)
+                delta_reasoning   = total_reasoning - prev.get("reasoning", 0)
 
-    USAGE_DIR.mkdir(parents=True, exist_ok=True)
-    state, prev = {}, {}
-    if STATE_JSON.exists():
-        try:
-            state = json.loads(STATE_JSON.read_text())
-            prev  = state.get(session_id) or {}
-        except Exception:
-            pass
+                if delta_fresh_input != 0 or delta_output != 0:
+                    state[session_id] = {
+                        "input":     total_input,
+                        "output":    total_output,
+                        "cached":    total_cached,
+                        "reasoning": total_reasoning,
+                    }
+                    STATE_JSON.write_text(json.dumps(state))
 
-    prev_fresh        = prev.get("input", 0) - prev.get("cached", 0)
-    delta_fresh_input = total_fresh     - prev_fresh
-    delta_output      = total_output    - prev.get("output", 0)
-    delta_cached      = total_cached    - prev.get("cached", 0)
-    delta_reasoning   = total_reasoning - prev.get("reasoning", 0)
+                    return {
+                        "session_id": session_id,
+                        "model":      model,
+                        "project":    project,
+                        "deltas": {
+                            "input":      delta_fresh_input,
+                            "output":     delta_output,
+                            "cache_read": delta_cached,
+                            "reasoning":  delta_reasoning,
+                        },
+                        "_prev": prev,
+                    }
 
-    if delta_fresh_input == 0 and delta_output == 0:
-        return None
+        if attempt < len(_STOP_HOOK_FLUSH_RETRY_DELAYS):
+            time.sleep(_STOP_HOOK_FLUSH_RETRY_DELAYS[attempt])
 
-    state[session_id] = {
-        "input":     total_input,
-        "output":    total_output,
-        "cached":    total_cached,
-        "reasoning": total_reasoning,
-    }
-    STATE_JSON.write_text(json.dumps(state))
-
-    return {
-        "session_id": session_id,
-        "model":      model,
-        "project":    project,
-        "deltas": {
-            "input":      delta_fresh_input,
-            "output":     delta_output,
-            "cache_read": delta_cached,
-            "reasoning":  delta_reasoning,
-        },
-        "_prev": prev,
-    }
+    return None
