@@ -8,6 +8,7 @@ RETRY_DELAYS = (0.1, 0.15, 0.2, 0.25)
 
 
 def _derive_project(cwd: str) -> str:
+    """Return project name from Claude hook cwd, normalizing worktree paths."""
     if not cwd:
         cwd = str(Path.cwd())
     if "/.claude/worktrees/" in cwd:
@@ -16,6 +17,7 @@ def _derive_project(cwd: str) -> str:
 
 
 def _record_compaction(session_id: str, ctx_tokens: int) -> None:
+    """Persist latest compaction token counts and result when pre-state exists."""
     COMPACTION_DIR.mkdir(parents=True, exist_ok=True)
     (COMPACTION_DIR / "last-stop.json").write_text(
         json.dumps({"session_id": session_id, "context_tokens": ctx_tokens})
@@ -38,6 +40,7 @@ def _record_compaction(session_id: str, ctx_tokens: int) -> None:
 
 
 def _resolve_subagent_transcript(transcript: str, agent_id: str):
+    """Find matching subagent transcript for an agent id near parent transcript."""
     transcript_path = Path(transcript)
     parent_dir = transcript_path.parent
     parent_name = transcript_path.name
@@ -72,6 +75,7 @@ def _resolve_subagent_transcript(transcript: str, agent_id: str):
 
 
 def _resolve_subagent_transcript_with_retry(transcript: str, agent_id: str):
+    """Retry subagent transcript lookup while Claude flushes stop-hook files."""
     for attempt in range(len(RETRY_DELAYS) + 1):
         found = _resolve_subagent_transcript(transcript, agent_id)
         if found:
@@ -82,6 +86,7 @@ def _resolve_subagent_transcript_with_retry(transcript: str, agent_id: str):
 
 
 def _read_transcript_totals(transcript: str):
+    """Read cumulative token totals and model name from a Claude transcript."""
     total_input = total_output = total_cache_write_5m = total_cache_write_1h = total_cache_read = 0
     transcript_model = None
     with open(transcript, encoding="utf-8") as f:
@@ -110,6 +115,7 @@ def _read_transcript_totals(transcript: str):
 
 
 def _compute_deltas(totals, prev: dict):
+    """Convert cumulative transcript totals into incremental usage deltas."""
     total_input, total_output, total_cache_write_5m, total_cache_write_1h, total_cache_read, _ = totals
 
     prev_5m = prev.get("cache_write_5m") if "cache_write_5m" in prev else prev.get("cache_write", 0)
@@ -125,6 +131,7 @@ def _compute_deltas(totals, prev: dict):
 
 
 def _read_transcript_totals_with_retry(transcript: str, prev: dict):
+    """Retry transcript reads until fresh input or output deltas appear."""
     for attempt in range(len(RETRY_DELAYS) + 1):
         if transcript and Path(transcript).exists():
             totals = _read_transcript_totals(transcript)
@@ -137,6 +144,7 @@ def _read_transcript_totals_with_retry(transcript: str, prev: dict):
 
 
 def prepare_data_source(stdin_data: dict):
+    """Build normalized Claude token usage data from stop-hook stdin."""
     session_id = stdin_data.get("session_id") or "unknown"
     transcript = stdin_data.get("transcript_path") or ""
     model_raw  = stdin_data.get("model") or {}

@@ -10,6 +10,7 @@ _STOP_HOOK_FLUSH_RETRY_DELAYS = (0.1, 0.15, 0.2, 0.25)
 
 
 def _derive_project(cwd: str) -> str:
+    """Return project name from Codex cwd, ignoring system and cache paths."""
     if not cwd:
         return "unknown"
     cwd = cwd.rstrip("/")
@@ -31,6 +32,7 @@ def _derive_project(cwd: str) -> str:
 
 
 def _find_transcript(session_id: str):
+    """Find today's Codex session transcript containing the session id."""
     today_dir = Path.home() / ".codex/sessions" / datetime.now().strftime("%Y/%m/%d")
     if not today_dir.is_dir():
         return None
@@ -44,6 +46,7 @@ def _find_transcript(session_id: str):
 
 
 def _read_last_token_count(transcript: str):
+    """Read the most recent cumulative token_count event from a transcript."""
     last_count = None
     try:
         with open(transcript, encoding="utf-8") as f:
@@ -61,12 +64,14 @@ def _read_last_token_count(transcript: str):
 
 
 def _resolve_transcript(provided_transcript: str, session_id: str) -> str:
+    """Use provided transcript when present, otherwise search by session id."""
     if provided_transcript and Path(provided_transcript).exists():
         return provided_transcript
     return _find_transcript(session_id) or ""
 
 
 def prepare_data_source(stdin_data: dict):
+    """Build normalized Codex token usage data from stop-hook stdin."""
     session_id = stdin_data.get("session_id") or "unknown"
     provided_transcript = stdin_data.get("transcript_path") or ""
     model      = stdin_data.get("model") or "unknown"
