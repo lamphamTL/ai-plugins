@@ -1,0 +1,79 @@
+name: Check Model Pricing
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      BASE_BRANCH: develop
+      BRANCH: auto/model-pricing-update
+      CLAUDE_TARGET: plugin/hooks/hosts/claude/model_pricing.py
+      CODEX_TARGET: plugin/hooks/hosts/codex/model_pricing.py
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check Claude pricing
+        run: python3 .github/workflows/scripts/check-claude-pricing.py | tee /tmp/claude.log
+
+      - name: Check Codex pricing
+        run: python3 .github/workflows/scripts/check-codex-pricing.py | tee /tmp/codex.log
+
+      - name: Detect changes
+        id: diff
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "$CLAUDE_TARGET" "$CODEX_TARGET"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'summary<<EOF'
+              echo '=== Claude ==='
+              cat /tmp/claude.log
+              echo '=== Codex ==='
+              cat /tmp/codex.log
+              echo EOF
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUMMARY: ${{ steps.diff.outputs.summary }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add "$CLAUDE_TARGET" "$CODEX_TARGET"
+          git commit -m "Update model pricing"
+          git push --force-with-lease origin "$BRANCH"
+
+          TITLE="Update model pricing"
+          BODY=$(cat <<EOF
+          Automated update from upstream pricing pages:
+          - Claude: <https://platform.claude.com/docs/en/about-claude/pricing>
+          - Codex: <https://developers.openai.com/codex/pricing>
+
+          \`\`\`
+          $SUMMARY
+          \`\`\`
+          EOF
+          )
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --title "$TITLE" --body "$BODY" --base "$BASE_BRANCH"
+          else
+            gh pr create --base "$BASE_BRANCH" --head "$BRANCH" --title "$TITLE" --body "$BODY"
+          fi
