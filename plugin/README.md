@@ -105,9 +105,10 @@ Rules match top-to-bottom; first wins. Matched prompt available as `INTENT_PROMP
 
 **Availability**: Claude + Codex
 
-Warns before continuing an old session whose prompt cache is likely expired.
-Fresh sessions continue normally. If the session is stale, choosing `Continue`
-allows the prompt through; choosing `Cancel` blocks it.
+- **Goal:** prevent accidentally resuming an old session and sending fresh input
+  without prompt-cache reuse.
+- **Stale threshold:** 55 minutes since the last session activity.
+- **Prompt choice:** `Continue` proceeds with the prompt; `Cancel` stops it.
 
 ### 6. Cache Hit Alert
 
