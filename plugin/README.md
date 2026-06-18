@@ -105,26 +105,9 @@ Rules match top-to-bottom; first wins. Matched prompt available as `INTENT_PROMP
 
 **Availability**: Claude + Codex
 
-**Script:** `hooks/scripts/resume-guard.py`
-**Hook:** `UserPromptSubmit`
-
-Checks the session transcript timestamp before prompt dispatch. If the latest
-valid transcript timestamp is more than 55 minutes old, the hook opens a macOS
-Desktop dialog:
-
-```text
-It seems like you are resuming an old session whose cache is likely expired. Do you want to continue?
-```
-
-Buttons are `Cancel` and `Continue`, with `Cancel` as the default. `Continue`
-allows the prompt through. `Cancel` blocks the prompt before it reaches the
-model. Missing, unreadable, empty, or timestamp-less transcripts are treated as
-fresh and allowed, so new sessions do not get blocked.
-
-The confirmation uses `osascript display dialog`, not a terminal prompt, so it
-works from Desktop-launched Claude/Codex sessions. If the dialog cannot be
-shown or exits unexpectedly, stale resumes are blocked to avoid accidentally
-sending expensive uncached context.
+Warns before continuing an old session whose prompt cache is likely expired.
+Fresh sessions continue normally. If the session is stale, choosing `Continue`
+allows the prompt through; choosing `Cancel` blocks it.
 
 ### 6. Cache Hit Alert
 
