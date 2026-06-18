@@ -15,6 +15,7 @@ plugin/
     ├── hosts/{claude,codex}/     # host-specific packages used by the drivers
     └── scripts/
         ├── track-tokens.py       # Stop hook (both hosts)
+        ├── resume-guard.py       # UserPromptSubmit stale-session guard (both hosts)
         ├── static-dispatch.py    # UserPromptSubmit (both hosts)
         ├── pre-compact.py        # PreCompact (Claude only)
         ├── post-compact.py       # PostCompact (Claude only)
@@ -100,7 +101,32 @@ Config search order (project first):
 
 Rules match top-to-bottom; first wins. Matched prompt available as `INTENT_PROMPT` env var.
 
-### 5. Cache Hit Alert
+### 5. Resume Guard
+
+**Availability**: Claude + Codex
+
+**Script:** `hooks/scripts/resume-guard.py`
+**Hook:** `UserPromptSubmit`
+
+Checks the session transcript timestamp before prompt dispatch. If the latest
+valid transcript timestamp is more than 55 minutes old, the hook opens a macOS
+Desktop dialog:
+
+```text
+It seems like you are resuming an old session whose cache is likely expired. Do you want to continue?
+```
+
+Buttons are `Cancel` and `Continue`, with `Cancel` as the default. `Continue`
+allows the prompt through. `Cancel` blocks the prompt before it reaches the
+model. Missing, unreadable, empty, or timestamp-less transcripts are treated as
+fresh and allowed, so new sessions do not get blocked.
+
+The confirmation uses `osascript display dialog`, not a terminal prompt, so it
+works from Desktop-launched Claude/Codex sessions. If the dialog cannot be
+shown or exits unexpectedly, stale resumes are blocked to avoid accidentally
+sending expensive uncached context.
+
+### 6. Cache Hit Alert
 
 **Availability**: Claude + Codex
 
