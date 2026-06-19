@@ -8,7 +8,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable
 
 
 HOSTS = {"claude", "codex"}
@@ -46,18 +46,22 @@ def parse_iso_timestamp(value: Any) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def _timestamp_values(node: Any) -> Iterable[Any]:
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if key in TIMESTAMP_KEYS:
-                yield value
-            yield from _timestamp_values(value)
-    elif isinstance(node, list):
-        for item in node:
-            yield from _timestamp_values(item)
+def _token_count_timestamp(row: Any) -> datetime | None:
+    if not isinstance(row, dict) or row.get("type") != "event_msg":
+        return None
+    payload = row.get("payload")
+    if not isinstance(payload, dict) or payload.get("type") != "token_count":
+        return None
+
+    for source in (row, payload):
+        for key in TIMESTAMP_KEYS:
+            parsed = parse_iso_timestamp(source.get(key))
+            if parsed is not None:
+                return parsed
+    return None
 
 
-def latest_transcript_timestamp(transcript_path: str | None) -> datetime | None:
+def latest_token_count_timestamp(transcript_path: str | None) -> datetime | None:
     if not transcript_path:
         return None
 
@@ -71,10 +75,9 @@ def latest_transcript_timestamp(transcript_path: str | None) -> datetime | None:
                     row = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                for value in _timestamp_values(row):
-                    parsed = parse_iso_timestamp(value)
-                    if parsed is not None and (latest is None or parsed > latest):
-                        latest = parsed
+                parsed = _token_count_timestamp(row)
+                if parsed is not None and (latest is None or parsed > latest):
+                    latest = parsed
     except OSError:
         return None
 
@@ -139,7 +142,9 @@ def should_block(
     now: datetime | None = None,
     dialog_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> bool:
-    latest = latest_transcript_timestamp(data.get("transcript_path"))
+    if now is None:
+        now = datetime.now(timezone.utc)
+    latest = latest_token_count_timestamp(data.get("transcript_path"))
     if not is_stale_session(latest, now=now):
         return False
     return not confirm_stale_resume(dialog_runner)
