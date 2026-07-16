@@ -88,7 +88,7 @@ For Codex, `tokens.input` is fresh non-cached input only. Cached input is stored
 The OpenAI API does not return a spend value, so cost is **approximated** from two inputs:
 
 1. **Credit rate card** ([help.openai.com/en/articles/20001106-codex-rate-card](https://help.openai.com/en/articles/20001106-codex-rate-card)) — credits consumed per million tokens per model.
-2. **Credit-to-USD rate** — derived from the assumed plan: **1000 credits/week hard cap** on a **$200/month subscription** ($46.15/week ÷ 1000 credits = **$0.04/credit**). This ratio is confirmed by cross-checking against the published API token prices, which align exactly (e.g. gpt-5.5 input: 125 credits/M × $0.04 = $5.00/M).
+2. **Credit-to-USD rate** — derived from the assumed plan: **1000 credits/week hard cap** on a **$200/month subscription** ($46.15/week ÷ 1000 credits = **$0.04/credit**). This ratio is confirmed by cross-checking against the published API token prices, which align exactly (e.g. gpt-5.6 Sol input: 125 credits/M × $0.04 = $5.00/M).
 
 Formula (reasoning tokens billed at output rate):
 
@@ -107,7 +107,11 @@ Credit rates per model (credits / 1M tokens, source: Codex rate card):
 
 | Model | Input | Output | Cached input |
 |-------|------:|-------:|-------------:|
+| gpt-5.6-sol | 125 | 750 | 12.50 |
+| gpt-5.6-terra | 62.50 | 375 | 6.25 |
+| gpt-5.6-luna | 25 | 150 | 2.50 |
 | gpt-5.5 | 125 | 750 | 12.50 |
+| gpt-5.5-cyber | 500 | 3000 | 50 |
 | gpt-5.4 | 62.50 | 375 | 6.25 |
 | gpt-5.4-mini | 18.75 | 113 | 1.875 |
 | gpt-5.3-codex | 43.75 | 350 | 4.375 |
