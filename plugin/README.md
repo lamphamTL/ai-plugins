@@ -15,6 +15,7 @@ plugin/
     ├── hosts/{claude,codex}/     # host-specific packages used by the drivers
     └── scripts/
         ├── track-tokens.py       # Stop hook (both hosts)
+        ├── resume-guard.py       # UserPromptSubmit stale-session guard (both hosts)
         ├── static-dispatch.py    # UserPromptSubmit (both hosts)
         ├── pre-compact.py        # PreCompact (Claude only)
         ├── post-compact.py       # PostCompact (Claude only)
@@ -100,7 +101,16 @@ Config search order (project first):
 
 Rules match top-to-bottom; first wins. Matched prompt available as `INTENT_PROMPT` env var.
 
-### 5. Cache Hit Alert
+### 5. Resume Guard
+
+**Availability**: Claude + Codex
+
+- **Goal:** prevent accidentally resuming an old session and sending fresh input
+  without prompt-cache reuse.
+- **Stale threshold:** 55 minutes since the last session activity.
+- **Prompt choice:** `Continue` proceeds with the prompt; `Cancel` stops it.
+
+### 6. Cache Hit Alert
 
 **Availability**: Claude + Codex
 
