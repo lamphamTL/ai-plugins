@@ -6,6 +6,7 @@ struct CompactNavigationBar: View {
     let barCount: Int
     let visibleDuration: TimeInterval
     let minDate: Date   // earliest data point — left arrow clamps here
+    var useUTCDateRange: Bool = false
     let onResetToPresent: () -> Void
 
     var body: some View {
@@ -63,18 +64,35 @@ struct CompactNavigationBar: View {
 
     private var visibleEnd: Date { scrollDate.addingTimeInterval(visibleDuration) }
     private var isAtPresent: Bool { scrollDate <= Date() && visibleEnd >= Date() }
+    private var dateDisplayTimeZone: TimeZone {
+        useUTCDateRange ? Calendar.cycleAnchored.timeZone : TimeZone.current
+    }
 
     private var label: String {
         let end = visibleEnd.addingTimeInterval(-1)
         switch kind {
         case .day, .week:
-            let s = scrollDate.formatted(.dateTime.month(.abbreviated).day())
-            let e = end.formatted(.dateTime.month(.abbreviated).day())
-            return "\(s) – \(e)"
+            guard useUTCDateRange else {
+                let s = scrollDate.formatted(.dateTime.month(.abbreviated).day())
+                let e = end.formatted(.dateTime.month(.abbreviated).day())
+                return "\(s) – \(e)"
+            }
+            let s = DateDisplayFormatting.monthDay(scrollDate, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+            let e = DateDisplayFormatting.monthDay(end, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+            return "\(s) – \(e) UTC"
         case .month:
-            let s = scrollDate.formatted(.dateTime.month(.abbreviated).year())
-            let e = end.formatted(.dateTime.month(.abbreviated).year())
-            return "\(s) – \(e)"
+            guard useUTCDateRange else {
+                let s = scrollDate.formatted(.dateTime.month(.abbreviated).year())
+                let e = end.formatted(.dateTime.month(.abbreviated).year())
+                return "\(s) – \(e)"
+            }
+            let s = DateDisplayFormatting.monthYear(scrollDate, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+            let e = DateDisplayFormatting.monthYear(end, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+            return "\(s) – \(e) UTC"
         }
+    }
+
+    private var dateDisplayCalendar: Calendar {
+        useUTCDateRange ? Calendar.cycleAnchored : Calendar.current
     }
 }

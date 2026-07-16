@@ -67,6 +67,7 @@ struct BarChartView: View {
     let projectColors: [String: Int]
     var showCredits: Bool = false
     var chartMode: ChartMode = .cost
+    var useUTCDateRange: Bool = false
 
     @Environment(\.displayMode) private var displayMode
 
@@ -110,6 +111,12 @@ struct BarChartView: View {
     }
 
     private var visibleEnd: Date { scrollDate.addingTimeInterval(visibleDuration) }
+    private var dateDisplayCalendar: Calendar {
+        useUTCDateRange ? Calendar.cycleAnchored : Calendar.current
+    }
+    private var dateDisplayTimeZone: TimeZone {
+        dateDisplayCalendar.timeZone
+    }
 
     // One bar per bucket: total cost / event count
     private var efficiencyPoints: [ChartPoint] {
@@ -185,43 +192,72 @@ struct BarChartView: View {
 
     private var allProjects: [String] { Array(Set(data.points.map(\.project))).sorted() }
 
-    private var axisFormat: Date.FormatStyle {
-        switch kind {
-        case .day, .week: return .dateTime.month(.abbreviated).day()
-        case .month:      return .dateTime.month(.abbreviated)
-        }
-    }
-
     @ViewBuilder
     private func dayLabel(for date: Date) -> some View {
-        // Uses local TZ so "Today" matches the user's clock, not the billing window.
-        let cal = Calendar.current
-        if cal.isDateInToday(date) {
+        let isToday = useUTCDateRange
+            ? dateDisplayCalendar.isDate(date, inSameDayAs: Date())
+            : Calendar.current.isDateInToday(date)
+        if isToday {
             Text("Today")
                 .font(.system(size: 9, weight: .bold, design: .rounded))
                 .foregroundStyle(.blue)
         } else {
             VStack(spacing: 1) {
-                Text(date.formatted(.dateTime.weekday(.abbreviated)))
+                Text(dayLabelWeekdayText(for: date))
                     .font(.system(size: 9, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
-                Text(date.formatted(.dateTime.day()))
+                Text(dayLabelDayText(for: date))
                     .font(.system(size: 9, weight: .regular, design: .rounded))
                     .foregroundStyle(.white.opacity(0.75))
             }
         }
     }
 
+    private func dayLabelWeekdayText(for date: Date) -> String {
+        if useUTCDateRange {
+            return DateDisplayFormatting.weekday(date, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+        }
+        return date.formatted(.dateTime.weekday(.abbreviated))
+    }
+
+    private func dayLabelDayText(for date: Date) -> String {
+        if useUTCDateRange {
+            return DateDisplayFormatting.day(date, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+        }
+        return date.formatted(.dateTime.day())
+    }
+
     @ViewBuilder
     private func weekLabel(for date: Date) -> some View {
         VStack(spacing: 1) {
-            Text(date.formatted(.dateTime.month(.abbreviated)))
+            Text(weekLabelMonthText(for: date))
                 .font(.system(size: 9, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
-            Text(date.formatted(.dateTime.day()))
+            Text(weekLabelDayText(for: date))
                 .font(.system(size: 9, weight: .regular, design: .rounded))
                 .foregroundStyle(.white.opacity(0.75))
         }
+    }
+
+    private func weekLabelMonthText(for date: Date) -> String {
+        if useUTCDateRange {
+            return DateDisplayFormatting.month(date, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+        }
+        return date.formatted(.dateTime.month(.abbreviated))
+    }
+
+    private func weekLabelDayText(for date: Date) -> String {
+        if useUTCDateRange {
+            return DateDisplayFormatting.day(date, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+        }
+        return date.formatted(.dateTime.day())
+    }
+
+    private func monthLabelText(for date: Date) -> String {
+        if useUTCDateRange {
+            return DateDisplayFormatting.month(date, calendar: dateDisplayCalendar, timeZone: dateDisplayTimeZone)
+        }
+        return date.formatted(.dateTime.month(.abbreviated))
     }
 
     private func hitBucket(at location: CGPoint, proxy: ChartProxy, geo: GeometryProxy) -> Date? {
@@ -363,6 +399,8 @@ struct BarChartView: View {
         .animation(nil, value: scrollDate)
         .animation(nil, value: barCount)
         .chartOverlay { proxy in tapOverlay(proxy: proxy) }
+        .environment(\.calendar, dateDisplayCalendar)
+        .environment(\.timeZone, dateDisplayTimeZone)
         .onChange(of: scrollDate) { _, _ in selectedBucket = nil }
         .onChange(of: kind)       { _, _ in selectedBucket = nil }
         .onChange(of: chartMode)  { _, _ in selectedBucket = nil }
@@ -389,6 +427,8 @@ struct BarChartView: View {
         .animation(nil, value: scrollDate)
         .animation(nil, value: barCount)
         .chartOverlay { proxy in tapOverlay(proxy: proxy) }
+        .environment(\.calendar, dateDisplayCalendar)
+        .environment(\.timeZone, dateDisplayTimeZone)
         .onChange(of: scrollDate) { _, _ in selectedBucket = nil }
         .onChange(of: kind)       { _, _ in selectedBucket = nil }
         .onChange(of: chartMode)  { _, _ in selectedBucket = nil }
@@ -415,6 +455,8 @@ struct BarChartView: View {
         .animation(nil, value: scrollDate)
         .animation(nil, value: barCount)
         .chartOverlay { proxy in tapOverlay(proxy: proxy) }
+        .environment(\.calendar, dateDisplayCalendar)
+        .environment(\.timeZone, dateDisplayTimeZone)
         .onChange(of: scrollDate) { _, _ in selectedBucket = nil }
         .onChange(of: kind)       { _, _ in selectedBucket = nil }
         .onChange(of: chartMode)  { _, _ in selectedBucket = nil }
@@ -448,6 +490,8 @@ struct BarChartView: View {
         .animation(nil, value: scrollDate)
         .animation(nil, value: barCount)
         .chartOverlay { proxy in tapOverlay(proxy: proxy) }
+        .environment(\.calendar, dateDisplayCalendar)
+        .environment(\.timeZone, dateDisplayTimeZone)
         .onChange(of: scrollDate) { _, _ in selectedBucket = nil }
         .onChange(of: kind)       { _, _ in selectedBucket = nil }
         .onChange(of: chartMode)  { _, _ in selectedBucket = nil }
@@ -482,6 +526,8 @@ struct BarChartView: View {
         .animation(nil, value: scrollDate)
         .animation(nil, value: barCount)
         .chartOverlay { proxy in tapOverlay(proxy: proxy) }
+        .environment(\.calendar, dateDisplayCalendar)
+        .environment(\.timeZone, dateDisplayTimeZone)
         .onChange(of: scrollDate) { _, _ in selectedBucket = nil }
         .onChange(of: kind)       { _, _ in selectedBucket = nil }
         .onChange(of: chartMode)  { _, _ in selectedBucket = nil }
@@ -513,7 +559,7 @@ struct BarChartView: View {
                     } else if kind == .week {
                         weekLabel(for: date)
                     } else {
-                        Text(date.formatted(axisFormat))
+                        Text(monthLabelText(for: date))
                             .font(.system(size: 10, weight: .medium, design: .rounded))
                             .foregroundStyle(.white)
                     }
